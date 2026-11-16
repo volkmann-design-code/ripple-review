@@ -7,7 +7,7 @@ Newest first. One entry per session: machine, what happened, what's next.
 - Phase 08 ticked on `main` directly (`[skip ci]`); Renovate configured
   (#1): pinned versions, 7-day release age, Angular and Nx grouped, no
   schedule (GitHub-hosted runners).
-- The web app's footer: where data goes, the source on GitHub, the
+- The web app's footer: it runs in the browser, the source on GitHub, the
   license.
 - Screenshots like the user's other demos: `bunx nx run
   @ripple-review/web:shots` (Playwright) takes the production build with
