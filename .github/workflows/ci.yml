@@ -49,7 +49,7 @@ jobs:
           fetch-depth: 0
           filter: tree:0
       - uses: ./.github/actions/setup-js-env
-      - uses: nrwl/nx-set-shas@v4.4.0
+      - uses: nrwl/nx-set-shas@v5.1.0
       - run: bunx nx affected -t test:unit
 
   # Typecheck and build need real Node: the Angular CLI
@@ -68,5 +68,5 @@ jobs:
       - uses: ./.github/actions/setup-js-env
         with:
           node-bun-shim: "false"
-      - uses: nrwl/nx-set-shas@v4.4.0
+      - uses: nrwl/nx-set-shas@v5.1.0
       - run: bunx nx affected -t typecheck build
