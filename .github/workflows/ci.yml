@@ -21,7 +21,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v5.1.0
+      - uses: actions/checkout@v7.0.1
       # Pinned biome binary only, no bun install. The version is read from
       # package.json so it can't drift from the pin.
       - id: biome
@@ -44,7 +44,7 @@ jobs:
       # nx-set-shas looks up the last successful run on main
       actions: read
     steps:
-      - uses: actions/checkout@v5.1.0
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           filter: tree:0
@@ -61,7 +61,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v5.1.0
+      - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
           filter: tree:0
