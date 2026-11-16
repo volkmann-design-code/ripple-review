@@ -3,6 +3,7 @@ import addComment from "@material-symbols/svg-400/rounded/add_comment.svg";
 import chatBubble from "@material-symbols/svg-400/rounded/chat_bubble.svg";
 import checkCircle from "@material-symbols/svg-400/rounded/check_circle.svg";
 import cloudDone from "@material-symbols/svg-400/rounded/cloud_done.svg";
+import code from "@material-symbols/svg-400/rounded/code.svg";
 import deleteIcon from "@material-symbols/svg-400/rounded/delete.svg";
 import devices from "@material-symbols/svg-400/rounded/devices.svg";
 import doneAll from "@material-symbols/svg-400/rounded/done_all.svg";
@@ -44,6 +45,7 @@ export const ICONS = {
   ai: symbol(starShine),
   "chevron-down": symbol(arrowDown),
   "chevron-right": symbol(arrowRight),
+  code: symbol(code),
   comment: symbol(chatBubble),
   "comment-add": symbol(addComment),
   delete: symbol(deleteIcon),

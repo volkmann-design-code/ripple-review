@@ -2,6 +2,22 @@
 
 Newest first. One entry per session: machine, what happened, what's next.
 
+## 2026-11-16: mac, after publishing
+
+- Phase 08 ticked on `main` directly (`[skip ci]`); Renovate configured
+  (#1): pinned versions, 7-day release age, Angular and Nx grouped, no
+  schedule (GitHub-hosted runners).
+- The web app's footer: where data goes, the source on GitHub, the
+  license.
+- Screenshots like the user's other demos: `bunx nx run
+  @ripple-review/web:shots` (Playwright) takes the production build with
+  GitHub's API faked from the `spartan-1845` fixture (`shots/fake-github.ts`,
+  REST and GraphQL as `forge-github` calls them; the worker's requests are
+  routed too): a review in light and dark, a thread next to its line, the
+  start page, and a 1280×640 cover for the social preview. Output in
+  `apps/web/shots/out/`, not committed.
+- **Next:** the user sets the social preview; GitLab.
+
 ## 2026-11-16: mac, preparing the public repository
 
 - The user chose to publish rather than keep the code private, under the
