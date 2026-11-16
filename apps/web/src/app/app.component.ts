@@ -31,7 +31,7 @@ import { IconComponent } from "./ui/icon.component";
       <div
         class="mx-auto flex max-w-screen-2xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-4 text-sm text-stone-500"
       >
-        <span>Runs entirely in your browser, without a server of its own.</span>
+        <span>Runs entirely in your browser; your data stays yours.</span>
         <a
           [href]="repo"
           class="ml-auto flex items-center gap-1 hover:text-teal-700 dark:hover:text-teal-400"
