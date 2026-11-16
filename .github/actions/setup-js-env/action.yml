@@ -24,7 +24,7 @@ runs:
   steps:
     # Real Node so jobs don't rely on the runner OS's system Node; the
     # node->bun shim below still overrides it on PATH when enabled.
-    - uses: actions/setup-node@v4.4.0
+    - uses: actions/setup-node@v7.1.0
       with:
         node-version: "24.22.2"
     - uses: oven-sh/setup-bun@v2.2.0
