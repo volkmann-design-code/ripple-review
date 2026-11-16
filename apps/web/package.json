@@ -65,7 +65,7 @@
     "@angular/cli": "22.2.5",
     "@angular/compiler-cli": "22.2.4",
     "@playwright/test": "1.65.0",
-    "@tailwindcss/postcss": "4.2.4",
-    "tailwindcss": "4.2.2"
+    "@tailwindcss/postcss": "4.3.5",
+    "tailwindcss": "4.3.5"
   }
 }
