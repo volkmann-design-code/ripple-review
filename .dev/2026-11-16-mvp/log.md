@@ -21,8 +21,11 @@ Newest first. One entry per session: machine, what happened, what's next.
   hosting removed from code, docs and `.dev/` (phase 08). `LICENSE.md`
   from the official template; the fixtures keep their projects' licenses.
   CI on GitHub-hosted runners.
-- **Next:** the PR; then the fresh repository, the `production` secrets
-  there, and a check of the deploy.
+- Merged (#19), then the switch: the private repository renamed and
+  archived, this one created with one initial commit, `production`
+  secrets recreated (limited to `main`), CI and deploy green, then made
+  public; `main` protected. Work continues in a fresh clone.
+- **Next:** Renovate config; GitLab.
 
 ## 2026-11-16: mac, deploy
 

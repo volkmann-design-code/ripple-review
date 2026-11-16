@@ -1,10 +1,10 @@
 ---
 id: 08-public-repo
 title: Public repository
-status: in-progress
+status: done
 depends_on: [07-web-app]
 branch: public-repo-prep
-pr: null
+pr: 19
 updated: 2026-11-16
 ---
 
@@ -28,8 +28,14 @@ D25 (changes D9).
       example; CLAUDE.md says what never goes into the repository.
 - [x] CI on GitHub-hosted runners, the same-repository gate dropped (fork
       PRs get CI, with a read-only token).
-- [ ] Merge.
-- [ ] The fresh public repository with one initial commit from the merged
-      tree; the private one renamed and archived.
-- [ ] The `production` environment's secrets recreated there (D24); the
-      first deploy checked.
+- [x] Merge (#19 in the private repository).
+- [x] The fresh public repository with one initial commit from the merged
+      tree, checked for private names, hosting details and tokens (also
+      inside the gzipped fixtures) before the push; the private one
+      renamed to `ripple-review-private`, its `production` environment
+      deleted, archived.
+- [x] The `production` environment's secrets recreated there (D24), the
+      environment limited to `main`; CI and the deploy green before the
+      repository went public, the deploy log without host details.
+- [x] `main` protected (biome, test-unit, typecheck-and-build required; no
+      force pushes); squash merges only, branches deleted after merge.

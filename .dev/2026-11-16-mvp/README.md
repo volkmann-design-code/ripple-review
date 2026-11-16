@@ -68,8 +68,9 @@ end it runs as a GitHub App on every PR (D4).
   synced with GitHub's "Viewed"; progress and saved reviews; reviews
   written and submitted on GitHub (D23); deployed as static files after
   every green CI on main (D24). Next: GitLab.
-- `08` in progress (D25): a public repository under FSL-1.1-MIT, made
-  fresh from a cleaned tree; private fixtures and the corpus kept locally.
+- `08` done (D25): public under FSL-1.1-MIT since 2026-11-16, a fresh
+  repository from a cleaned tree; private fixtures and the corpus kept
+  locally in `local/`.
 
 ## Phases
 
@@ -83,7 +84,7 @@ end it runs as a GitHub App on every PR (D4).
 | 05 | [More adapters (tree-sitter)](phases/05-more-adapters.md) | todo |
 | 07 | [Web app: local first, hosted browser-only](phases/07-web-app.md) | in-progress (before 06, D21, D22) |
 | 06 | [GitHub App: sticky PR comment](phases/06-github-app.md) | todo |
-| 08 | [Public repository](phases/08-public-repo.md) | in-progress (D25) |
+| 08 | [Public repository](phases/08-public-repo.md) | done (D25) |
 
 Order: 01 → 02 → 03; 04 and 05 are driven by what 03 finds; 07 (web app)
 before 06 (D21), and the tree-sitter base of 05 after it.
