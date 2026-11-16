@@ -1,0 +1,33 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":pinVersions"],
+  // No schedule: CI runs on GitHub's runners, nothing of ours to keep idle.
+  // config:recommended caps new PRs at 2/hour; open them as they come
+  // instead, at most 20 at a time.
+  "prHourlyLimit": 0,
+  "prConcurrentLimit": 20,
+  // keep in sync with the same setting in bunfig.toml
+  "minimumReleaseAge": "7 days",
+  "labels": ["dependencies"],
+  "reviewers": ["evolkmann"],
+  "commitMessagePrefix": "chore(deps): ",
+  "packageRules": [
+    {
+      "description": "One PR for the whole @angular namespace (framework, cli, build): split PRs leave its packages at mismatched versions",
+      "matchPackageNames": ["@angular/**"],
+      "groupName": "angular"
+    },
+    {
+      "description": "One PR for Nx and its plugins, which must stay on the same version",
+      "matchPackageNames": ["nx", "@nx/**"],
+      "groupName": "nx"
+    },
+    {
+      "description": "CI checks that biome.json's $schema matches the pinned Biome, which Renovate doesn't move",
+      "matchPackageNames": ["@biomejs/biome"],
+      "prBodyNotes": [
+        "Run `bunx @biomejs/biome migrate --write` on this branch: CI fails until biome.json's `$schema` matches the new version."
+      ]
+    }
+  ]
+}
