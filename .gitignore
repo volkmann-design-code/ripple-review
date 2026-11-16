@@ -9,3 +9,7 @@ dist
 # Private recordings and the evaluation corpus: tested and run locally, never
 # committed (fixtures of private repositories hold their source)
 /local/
+
+# Screenshots and Playwright results (bunx nx run @ripple-review/web:shots)
+/apps/web/shots/out/
+/apps/web/shots/.results/

@@ -92,7 +92,13 @@ Nx workspace on Bun, Biome for lint and format, lefthook for git hooks
 ```sh
 bunx nx run-many -t typecheck test:unit   # or: bunx nx affected -t …
 bunx biome check --write .
+bunx nx run @ripple-review/web:shots      # screenshots and a 1280×640 cover
 ```
+
+The screenshots (`apps/web/shots/`) show the real production build, with
+GitHub's API answered from a recorded fixture: no token, the same pictures
+every time. Playwright needs its browser once:
+`cd apps/web && bunx playwright install chromium`.
 
 Tests run offline: recorded PRs in `apps/cli/fixtures/` (`--record`) replay
 against a golden `expected.md` of their review order. An example of the

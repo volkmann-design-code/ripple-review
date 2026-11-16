@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "ng serve",
     "build": "ng build",
-    "test:unit": "bun --bun vitest run src"
+    "test:unit": "bun --bun vitest run src",
+    "shots": "playwright test -c shots.config.ts"
   },
   "nx": {
     "targets": {
@@ -30,6 +31,20 @@
         "outputs": [
           "{projectRoot}/dist"
         ]
+      },
+      "shots": {
+        "executor": "nx:run-commands",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "cwd": "apps/web",
+          "command": "./node_modules/.bin/playwright test -c shots.config.ts"
+        },
+        "outputs": [
+          "{projectRoot}/shots/out"
+        ],
+        "cache": false
       }
     }
   },
@@ -49,6 +64,7 @@
     "@angular/build": "22.2.5",
     "@angular/cli": "22.2.5",
     "@angular/compiler-cli": "22.2.4",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.2.4",
     "tailwindcss": "4.2.2"
   }
