@@ -1,0 +1,379 @@
+diff --git a/libs/brain/tooltip/src/lib/brn-tooltip-position.spec.ts b/libs/brain/tooltip/src/lib/brn-tooltip-position.spec.ts
+new file mode 100644
+index 0000000000..f39b0a148d
+--- /dev/null
++++ b/libs/brain/tooltip/src/lib/brn-tooltip-position.spec.ts
+@@ -0,0 +1,15 @@
++import { getTooltipSideOffset } from './brn-tooltip-position';
++
++describe('getTooltipSideOffset', () => {
++	it('offsets each placement along its own axis', () => {
++		expect(getTooltipSideOffset('top', 8)).toEqual({ x: 0, y: -8 });
++		expect(getTooltipSideOffset('bottom', 8)).toEqual({ x: 0, y: 8 });
++		expect(getTooltipSideOffset('left', 8)).toEqual({ x: -8, y: 0 });
++		expect(getTooltipSideOffset('right', 8)).toEqual({ x: 8, y: 0 });
++	});
++
++	it('keeps explicit and negative offsets', () => {
++		expect(getTooltipSideOffset('bottom', 0)).toEqual({ x: 0, y: 0 });
++		expect(getTooltipSideOffset('bottom', -4)).toEqual({ x: 0, y: -4 });
++	});
++});
+diff --git a/libs/brain/tooltip/src/lib/brn-tooltip-position.ts b/libs/brain/tooltip/src/lib/brn-tooltip-position.ts
+index 6b6253c40b..c765a565f5 100644
+--- a/libs/brain/tooltip/src/lib/brn-tooltip-position.ts
++++ b/libs/brain/tooltip/src/lib/brn-tooltip-position.ts
+@@ -8,31 +8,40 @@ export const BRN_TOOLTIP_POSITIONS_MAP: Record<BrnTooltipPosition, ConnectedPosi
+ 		originY: 'top',
+ 		overlayX: 'center',
+ 		overlayY: 'bottom',
+-		offsetY: -8,
+ 	},
+ 	bottom: {
+ 		originX: 'center',
+ 		originY: 'bottom',
+ 		overlayX: 'center',
+ 		overlayY: 'top',
+-		offsetY: 8,
+ 	},
+ 	left: {
+ 		originX: 'start',
+ 		originY: 'center',
+ 		overlayX: 'end',
+ 		overlayY: 'center',
+-		offsetX: -8,
+ 	},
+ 	right: {
+ 		originX: 'end',
+ 		originY: 'center',
+ 		overlayX: 'start',
+ 		overlayY: 'center',
+-		offsetX: 8,
+ 	},
+ };
+ 
++export function getTooltipSideOffset(position: BrnTooltipPosition, sideOffset: number): { x: number; y: number } {
++	switch (position) {
++		case 'top':
++			return { x: 0, y: -sideOffset };
++		case 'bottom':
++			return { x: 0, y: sideOffset };
++		case 'left':
++			return { x: -sideOffset, y: 0 };
++		case 'right':
++			return { x: sideOffset, y: 0 };
++	}
++}
++
+ /** Fallback order for each preferred position when it doesn't fit in the viewport. */
+ export const BRN_TOOLTIP_FALLBACK_POSITIONS: Record<BrnTooltipPosition, BrnTooltipPosition[]> = {
+ 	top: ['bottom', 'right', 'left'],
+diff --git a/libs/brain/tooltip/src/lib/brn-tooltip.token.ts b/libs/brain/tooltip/src/lib/brn-tooltip.token.ts
+index 60729318e4..e1e046ac05 100644
+--- a/libs/brain/tooltip/src/lib/brn-tooltip.token.ts
++++ b/libs/brain/tooltip/src/lib/brn-tooltip.token.ts
+@@ -7,6 +7,8 @@ export interface BrnTooltipOptions {
+ 	showDelay: number;
+ 	/** Default delay when the tooltip is hidden. */
+ 	hideDelay: number;
++	/** Default distance in px between the tooltip and its trigger. */
++	sideOffset?: number;
+ 	/** Default position for tooltips. */
+ 	position?: BrnTooltipPosition;
+ 	/** Additional classes for the SVG element in the tooltip arrow. */
+@@ -20,6 +22,7 @@ export interface BrnTooltipOptions {
+ export const defaultOptions: BrnTooltipOptions = {
+ 	showDelay: 0,
+ 	hideDelay: 0,
++	sideOffset: 8,
+ 	svgClasses: '',
+ 	arrowClasses: () => '',
+ 	tooltipContentClasses: '',
+diff --git a/libs/brain/tooltip/src/lib/brn-tooltip.ts b/libs/brain/tooltip/src/lib/brn-tooltip.ts
+index 3535ea84e3..6d08008e46 100644
+--- a/libs/brain/tooltip/src/lib/brn-tooltip.ts
++++ b/libs/brain/tooltip/src/lib/brn-tooltip.ts
+@@ -25,10 +25,12 @@ import {
+ 	Renderer2,
+ 	runInInjectionContext,
+ 	type TemplateRef,
++	untracked,
+ } from '@angular/core';
+ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+ 
+ import { Directionality } from '@angular/cdk/bidi';
++import type { NumberInput } from '@angular/cdk/coercion';
+ import { hasModifierKey } from '@angular/cdk/keycodes';
+ import { waitForElementAnimations } from '@spartan-ng/brain/core';
+ import { of, Subject, Subscription, timer } from 'rxjs';
+@@ -39,6 +41,7 @@ import {
+ 	BRN_TOOLTIP_FALLBACK_POSITIONS,
+ 	BRN_TOOLTIP_POSITIONS_MAP,
+ 	BrnTooltipPosition,
++	getTooltipSideOffset,
+ 	resolveTooltipPosition,
+ } from './brn-tooltip-position';
+ import { BrnTooltipType } from './brn-tooltip-type';
+@@ -84,6 +87,7 @@ export class BrnTooltip {
+ 	public readonly brnTooltip = input<BrnTooltipType>(null);
+ 	public readonly showDelay = input<number, number>(this._config.showDelay, { transform: numberAttribute });
+ 	public readonly hideDelay = input<number, number>(this._config.hideDelay, { transform: numberAttribute });
++	public readonly sideOffset = input<number, NumberInput>(this._config.sideOffset ?? 8, { transform: numberAttribute });
+ 
+ 	public readonly show = output<void>();
+ 	public readonly hide = output<void>();
+@@ -100,20 +104,18 @@ export class BrnTooltip {
+ 
+ 	constructor() {
+ 		afterNextRender(() => {
+-			this._dir.change.pipe(takeUntilDestroyed(this._destroyRef)).subscribe(() => {
+-				if (this._overlayRef) {
+-					this._updatePosition();
+-					if (this._overlayRef.hasAttached()) {
+-						this._overlayRef.updatePosition();
+-					}
+-				}
+-			});
++			this._dir.change.pipe(takeUntilDestroyed(this._destroyRef)).subscribe(() => this._refreshOverlayPosition());
+ 
+ 			runInInjectionContext(this._injector, () => {
+ 				this._setupDelayMechanism();
+ 				this._cleanupTriggerEvents();
+ 				this._initTriggers();
+ 
++				effect(() => {
++					this.sideOffset();
++					untracked(() => this._refreshOverlayPosition());
++				});
++
+ 				/**
+ 				 * This effect is used to update the tooltip content when the tooltip text changes.
+ 				 * It's the reactive bridge between the tooltip text and the tooltip content.
+@@ -185,6 +187,15 @@ export class BrnTooltip {
+ 		this.delay(false, -1);
+ 	}
+ 
++	/** Rebuild the positions from the current inputs and re-apply them to the overlay, if one exists. */
++	private _refreshOverlayPosition(): void {
++		if (!this._overlayRef) return;
++		this._updatePosition();
++		if (this._overlayRef.hasAttached()) {
++			this._overlayRef.updatePosition();
++		}
++	}
++
+ 	private _updatePosition(): void {
+ 		const strategy = this._overlayRef?.getConfig().positionStrategy as FlexibleConnectedPositionStrategy;
+ 
+@@ -209,8 +220,9 @@ export class BrnTooltip {
+ 	private _getAdjustedPositionFor(pos: BrnTooltipPosition): ConnectedPosition {
+ 		const position = BRN_TOOLTIP_POSITIONS_MAP[pos];
+ 		const isLtr = this._dir.value !== 'rtl';
+-		const baseOffsetX = position.offsetX != null ? (isLtr ? position.offsetX : -position.offsetX) : 0;
+-		const baseOffsetY = position.offsetY ?? 0;
++		const { x: sideOffsetX, y: sideOffsetY } = getTooltipSideOffset(pos, this.sideOffset());
++		const baseOffsetX = isLtr ? sideOffsetX : -sideOffsetX;
++		const baseOffsetY = sideOffsetY;
+ 		const { x: compensationX, y: compensationY } = this._getVisualViewportCompensation(position, isLtr);
+ 
+ 		// CDK renders offsetX/offsetY as a transform on the pane, so fold the viewport compensation in here.
+diff --git a/libs/cli/src/generators/ui/libs/tooltip/files/lib/hlm-tooltip.ts.template b/libs/cli/src/generators/ui/libs/tooltip/files/lib/hlm-tooltip.ts.template
+index f5caab2af4..555260e0df 100644
+--- a/libs/cli/src/generators/ui/libs/tooltip/files/lib/hlm-tooltip.ts.template
++++ b/libs/cli/src/generators/ui/libs/tooltip/files/lib/hlm-tooltip.ts.template
+@@ -34,7 +34,7 @@ export const tooltipPositionVariants = cva('absolute', {
+ 	hostDirectives: [
+ 		{
+ 			directive: BrnTooltip,
+-			inputs: ['brnTooltip: hlmTooltip', 'position', 'hideDelay', 'showDelay', 'tooltipDisabled'],
++			inputs: ['brnTooltip: hlmTooltip', 'position', 'hideDelay', 'showDelay', 'sideOffset', 'tooltipDisabled'],
+ 		},
+ 	],
+ })
+diff --git a/libs/helm/tooltip/src/lib/hlm-tooltip-side-offset.spec.ts b/libs/helm/tooltip/src/lib/hlm-tooltip-side-offset.spec.ts
+new file mode 100644
+index 0000000000..8aab93229b
+--- /dev/null
++++ b/libs/helm/tooltip/src/lib/hlm-tooltip-side-offset.spec.ts
+@@ -0,0 +1,140 @@
++import { Directionality } from '@angular/cdk/bidi';
++import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
++import { provideBrnTooltipDefaultOptions } from '@spartan-ng/brain/tooltip';
++import { fireEvent, render, screen, waitFor } from '@testing-library/angular';
++import { HlmTooltip } from './hlm-tooltip';
++
++@Component({
++	selector: 'hlm-tooltip-side-offset-host',
++	imports: [HlmTooltip],
++	providers: [Directionality],
++	changeDetection: ChangeDetectionStrategy.OnPush,
++	template: `
++		<div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center">
++			<button hlmTooltip="tip" position="bottom" [sideOffset]="20">trigger</button>
++		</div>
++	`,
++})
++class TooltipSideOffsetHost {}
++
++@Component({
++	selector: 'hlm-tooltip-default-side-offset-host',
++	imports: [HlmTooltip],
++	providers: [Directionality],
++	changeDetection: ChangeDetectionStrategy.OnPush,
++	template: `
++		<div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center">
++			<button hlmTooltip="tip" position="bottom">trigger</button>
++		</div>
++	`,
++})
++class TooltipDefaultSideOffsetHost {}
++
++@Component({
++	selector: 'hlm-tooltip-dynamic-side-offset-host',
++	imports: [HlmTooltip],
++	providers: [Directionality],
++	changeDetection: ChangeDetectionStrategy.OnPush,
++	template: `
++		<div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center">
++			<button hlmTooltip="tip" position="bottom" [sideOffset]="offset()">trigger</button>
++		</div>
++	`,
++})
++class TooltipDynamicSideOffsetHost {
++	public readonly offset = signal(8);
++}
++
++@Component({
++	selector: 'hlm-tooltip-zero-side-offset-host',
++	imports: [HlmTooltip],
++	providers: [Directionality],
++	changeDetection: ChangeDetectionStrategy.OnPush,
++	template: `
++		<div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center">
++			<button hlmTooltip="tip" position="bottom" [sideOffset]="0">trigger</button>
++		</div>
++	`,
++})
++class TooltipZeroSideOffsetHost {}
++
++@Component({
++	selector: 'hlm-tooltip-rtl-side-offset-host',
++	imports: [HlmTooltip],
++	providers: [Directionality],
++	changeDetection: ChangeDetectionStrategy.OnPush,
++	template: `
++		<div style="position: fixed; inset: 0; display: flex; align-items: center; justify-content: center">
++			<button hlmTooltip="tip" position="right" [sideOffset]="20">trigger</button>
++		</div>
++	`,
++})
++class TooltipRtlSideOffsetHost {}
++
++const pane = () => document.querySelector<HTMLElement>('.cdk-overlay-pane');
++const triggerRect = () => screen.getByText('trigger').getBoundingClientRect();
++const tooltipRect = () => document.querySelector('[role="tooltip"]')!.getBoundingClientRect();
++
++describe('HlmTooltip sideOffset', () => {
++	afterEach(() => {
++		document.documentElement.dir = '';
++		document.querySelectorAll('.cdk-overlay-container').forEach((el) => el.remove());
++	});
++
++	it('defaults to 8px', async () => {
++		await render(TooltipDefaultSideOffsetHost);
++
++		fireEvent.pointerEnter(screen.getByText('trigger'), { pointerType: 'mouse' });
++
++		await waitFor(() => expect(pane()?.style.transform).toContain('translateY(8px)'));
++	});
++
++	it('uses the sideOffset input', async () => {
++		await render(TooltipSideOffsetHost);
++
++		fireEvent.pointerEnter(screen.getByText('trigger'), { pointerType: 'mouse' });
++
++		await waitFor(() => expect(pane()?.style.transform).toContain('translateY(20px)'));
++	});
++
++	it('uses the sideOffset default option', async () => {
++		await render(TooltipDefaultSideOffsetHost, {
++			providers: [provideBrnTooltipDefaultOptions({ sideOffset: 4 })],
++		});
++
++		fireEvent.pointerEnter(screen.getByText('trigger'), { pointerType: 'mouse' });
++
++		await waitFor(() => expect(pane()?.style.transform).toContain('translateY(4px)'));
++	});
++
++	it('repositions an open tooltip when sideOffset changes', async () => {
++		const { fixture } = await render(TooltipDynamicSideOffsetHost);
++
++		fireEvent.pointerEnter(screen.getByText('trigger'), { pointerType: 'mouse' });
++		await waitFor(() => expect(pane()?.style.transform).toContain('translateY(8px)'));
++
++		fixture.componentInstance.offset.set(16);
++		fixture.detectChanges();
++
++		await waitFor(() => expect(pane()?.style.transform).toContain('translateY(16px)'));
++	});
++
++	it('supports an explicit 0 offset', async () => {
++		await render(TooltipZeroSideOffsetHost);
++
++		fireEvent.pointerEnter(screen.getByText('trigger'), { pointerType: 'mouse' });
++
++		await waitFor(() => expect(Math.abs(tooltipRect().top - triggerRect().bottom)).toBeLessThan(1));
++	});
++
++	it('keeps the gap on the correct side in RTL', async () => {
++		document.documentElement.dir = 'rtl';
++
++		await render(TooltipRtlSideOffsetHost);
++
++		fireEvent.pointerEnter(screen.getByText('trigger'), { pointerType: 'mouse' });
++
++		// `right` places the tooltip on the physical left in RTL; the offset must still point away from the trigger.
++		await waitFor(() => expect(Math.abs(triggerRect().left - tooltipRect().right - 20)).toBeLessThan(1));
++	});
++});
+diff --git a/libs/helm/tooltip/src/lib/hlm-tooltip.ts b/libs/helm/tooltip/src/lib/hlm-tooltip.ts
+index 1883e22e1e..5fb107d94a 100644
+--- a/libs/helm/tooltip/src/lib/hlm-tooltip.ts
++++ b/libs/helm/tooltip/src/lib/hlm-tooltip.ts
+@@ -34,7 +34,7 @@ export const tooltipPositionVariants = cva('absolute', {
+ 	hostDirectives: [
+ 		{
+ 			directive: BrnTooltip,
+-			inputs: ['brnTooltip: hlmTooltip', 'position', 'hideDelay', 'showDelay', 'tooltipDisabled'],
++			inputs: ['brnTooltip: hlmTooltip', 'position', 'hideDelay', 'showDelay', 'sideOffset', 'tooltipDisabled'],
+ 		},
+ 	],
+ })
+diff --git a/libs/tools/src/executors/docs/generate-ui-docs/__snapshots__/executor.spec.ts.snap b/libs/tools/src/executors/docs/generate-ui-docs/__snapshots__/executor.spec.ts.snap
+index 24d18eb4df..7a987b72ed 100644
+--- a/libs/tools/src/executors/docs/generate-ui-docs/__snapshots__/executor.spec.ts.snap
++++ b/libs/tools/src/executors/docs/generate-ui-docs/__snapshots__/executor.spec.ts.snap
+@@ -11254,6 +11254,11 @@ exports[`generate-ui-docs executor > produces stable output 1`] = `
+             "required": false,
+             "type": "number",
+           },
++          {
++            "name": "sideOffset",
++            "required": false,
++            "type": "number",
++          },
+         ],
+         "models": [],
+         "outputs": [
+@@ -11322,6 +11327,11 @@ exports[`generate-ui-docs executor > produces stable output 1`] = `
+             "required": false,
+             "type": "number",
+           },
++          {
++            "name": "sideOffset",
++            "required": false,
++            "type": "number",
++          },
+           {
+             "name": "tooltipDisabled",
+             "required": false,

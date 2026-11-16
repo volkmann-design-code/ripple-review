@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["bun"],
+    "strict": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "paths": {
+      "@ripple-review/core/*": ["./libs/core/src/*.ts"],
+      "@ripple-review/sources/*": ["./libs/sources/src/*.ts"],
+      "@ripple-review/report/*": ["./libs/report/src/*.ts"],
+      "@ripple-review/adapter-typescript": [
+        "./libs/adapter-typescript/src/typescript.ts"
+      ],
+      "@ripple-review/adapter-sql": ["./libs/adapter-sql/src/sql.ts"],
+      "@ripple-review/adapter-graphql": [
+        "./libs/adapter-graphql/src/graphql.ts"
+      ],
+      "@ripple-review/ai-anthropic": ["./libs/ai-anthropic/src/anthropic.ts"],
+      "@ripple-review/forge-github": ["./libs/forge-github/src/github.ts"],
+      "@ripple-review/engine/*": ["./libs/engine/src/*.ts"],
+      "@ripple-review/api-contract": ["./libs/api-contract/src/api.ts"]
+    }
+  }
+}

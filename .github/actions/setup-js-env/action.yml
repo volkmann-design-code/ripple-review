@@ -1,0 +1,57 @@
+name: Setup JS Environment
+description: Sets up Node and Bun, caches dependencies, and installs packages
+
+inputs:
+  node-bun-shim:
+    description: >-
+      Shim `node` -> bun so nx-invoked tools run under Bun. Set "false" for jobs
+      that need real Node (e.g. Angular component tests use vitest's vmThreads
+      pool, which bun can't start).
+    default: "true"
+  cache-save:
+    description: >-
+      Save the bun cache when the job ends. Set "false" for restore-only, which
+      is right for a job that runs rarely: GitHub evicts a cache untouched for
+      7 days, so a monthly job pays the save every time and never reads it back
+      — and on Windows that save was measured at 4m16s against a minute of
+      actual work. It also stops a cache nobody hits from competing for the
+      repo's 10 GB budget with the ones CI reads all day. Restore still runs,
+      so a second run inside the window is still cheap.
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    # Real Node so jobs don't rely on the runner OS's system Node; the
+    # node->bun shim below still overrides it on PATH when enabled.
+    - uses: actions/setup-node@v4.4.0
+      with:
+        node-version: "24.22.2"
+    - uses: oven-sh/setup-bun@v2.2.0
+    # Shim node->bun: nx runs tools (vitest, astro) via their
+    # `#!/usr/bin/env node` shebang, so without this they'd run under the
+    # system Node instead of Bun. Skip for jobs that need real Node.
+    - if: inputs['node-bun-shim'] == 'true'
+      run: |
+        mkdir -p "$RUNNER_TEMP/bun-node-shim"
+        ln -sf "$(command -v bun)" "$RUNNER_TEMP/bun-node-shim/node"
+        echo "$RUNNER_TEMP/bun-node-shim" >> "$GITHUB_PATH"
+      shell: bash
+    # Two steps rather than one, because `actions/cache` has no "don't save"
+    # switch — the restore-only behaviour is a different action path.
+    # Self-hosted runners skip both: they are expected to keep a bun cache
+    # of their own (BUN_INSTALL_CACHE_DIR).
+    - if: runner.environment == 'github-hosted' && inputs['cache-save'] == 'true'
+      uses: actions/cache@v5.1.0
+      with:
+        path: ~/.bun/install/cache
+        key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+        restore-keys: bun-${{ runner.os }}-
+    - if: runner.environment == 'github-hosted' && inputs['cache-save'] != 'true'
+      uses: actions/cache/restore@v5.1.0
+      with:
+        path: ~/.bun/install/cache
+        key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+        restore-keys: bun-${{ runner.os }}-
+    - run: bun install --frozen-lockfile
+      shell: bash

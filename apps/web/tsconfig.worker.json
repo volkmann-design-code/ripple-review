@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/out-tsc/worker",
+    "lib": ["ES2022", "webworker"],
+    "types": [],
+    // The worker compiles the libraries, written for the root tsconfig.
+    "noPropertyAccessFromIndexSignature": false
+  },
+  "include": ["src/**/*.worker.ts"]
+}

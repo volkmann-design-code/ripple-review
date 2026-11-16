@@ -1,0 +1,5 @@
+[install]
+# keep in sync with the same setting in renovate.json5
+minimumReleaseAge = 604800
+# pin exact versions on install, matching renovate's rangeStrategy: "pin"
+exact = true

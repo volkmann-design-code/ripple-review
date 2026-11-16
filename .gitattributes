@@ -1,0 +1,5 @@
+# Recorded fixtures: collapsed in PR diffs. Their expected.md is not, so a
+# change to a golden review order is reviewed.
+apps/cli/fixtures/*/diff.patch linguist-generated
+apps/cli/fixtures/*/meta.json linguist-generated
+apps/cli/fixtures/*/*.gz linguist-generated binary

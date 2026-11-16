@@ -1,0 +1,191 @@
+name: Deploy
+
+# The web app (apps/web) as static files (D22) on a host reached by SSH with
+# a password: after every green CI run on main, or by hand for any commit,
+# which is also the rollback. Builds here, copies with tar over SSH, then
+# swaps the files in place, index.html last.
+#
+# Environment `production`, everything a secret: the repository is meant to
+# be public, and so are its Actions logs, which print variables in clear.
+#   DEPLOY_SSH_HOST, DEPLOY_SSH_USER, DEPLOY_SSH_PASSWORD
+#   DEPLOY_SSH_PORT      optional, default 22
+#   DEPLOY_KNOWN_HOSTS   `ssh-keyscan -p <port> <host>`, checked by hand
+#   DEPLOY_PATH          the site's document root as the SSH shell sees it
+#   DEPLOY_URL           the site, https://…
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, branch or tag to deploy
+        default: main
+
+# one deploy after another, none cancelled halfway
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # CI runs can finish out of order: an automatic deploy only for the
+  # commit that is still the newest on main, so an older one never
+  # replaces a newer deploy (by hand, any ref goes)
+  newest:
+    name: Newest commit
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.check.outputs.deploy }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          if [ "$EVENT" = workflow_dispatch ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          elif [ "$(gh api "repos/${{ github.repository }}/commits/main" -q .sha)" = "$SHA" ]; then
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "$SHA is no longer the newest commit on main: skipped"
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    name: Deploy
+    needs: newest
+    if: needs.newest.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
+      SSH_USER: ${{ secrets.DEPLOY_SSH_USER }}
+      SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_URL: ${{ secrets.DEPLOY_URL }}
+    steps:
+      # The steps below delete files inside DEPLOY_PATH. An empty or odd
+      # path would point them at the account's root (`cd ''` succeeds), so
+      # it must be absolute, plain and not the root itself.
+      - name: Settings
+        run: |
+          for name in SSH_HOST SSH_USER DEPLOY_PATH DEPLOY_URL; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set in the production environment"
+              exit 1
+            fi
+          done
+          if ! [[ "$DEPLOY_PATH" =~ ^/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$ ]] || [[ "$DEPLOY_PATH" == *..* ]]; then
+            echo "::error::DEPLOY_PATH must be an absolute, plain path below /"
+            exit 1
+          fi
+          if ! [[ "$DEPLOY_URL" =~ ^https://[A-Za-z0-9.-]+/?$ ]]; then
+            echo "::error::DEPLOY_URL must be https://<host>"
+            exit 1
+          fi
+          echo "DEPLOY_URL=${DEPLOY_URL%/}" >> "$GITHUB_ENV"
+
+      - uses: actions/checkout@v5.1.0
+        with:
+          ref: ${{ inputs.ref || github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      # real Node: the Angular CLI refuses Bun's node shim
+      - uses: ./.github/actions/setup-js-env
+        with:
+          node-bun-shim: "false"
+
+      # production configuration: no fixtures (they hold the recorded
+      # repositories' source), no inline script (the CSP allows none)
+      - name: Build
+        run: |
+          bunx nx run @ripple-review/web:build --skip-nx-cache
+          cd apps/web/dist/browser
+          test -s index.html && test -s .htaccess
+          if [ -e fixtures ]; then
+            echo "::error::the build contains fixtures"
+            exit 1
+          fi
+          if grep -q '<script>' index.html; then
+            echo "::error::index.html has an inline script, which the CSP blocks"
+            exit 1
+          fi
+
+      - name: SSH
+        env:
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq sshpass
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # tar over SSH (no rsync needed on the host) into .release/ inside
+      # the document root, which the .htaccess keeps private
+      - name: Copy
+        env:
+          SSHPASS: ${{ secrets.DEPLOY_SSH_PASSWORD }}
+        run: |
+          tar -C apps/web/dist/browser -czf - . | sshpass -e ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "test -d '$DEPLOY_PATH' \
+              && rm -rf '$DEPLOY_PATH/.release' \
+              && mkdir '$DEPLOY_PATH/.release' \
+              && tar -xzf - -C '$DEPLOY_PATH/.release'"
+
+      # The release's files replace the site's, index.html last, so a page
+      # never points at bundles that aren't there yet. Bundles are named by
+      # their hash: the previous release's stay, for tabs still open on it
+      # that load a lazy chunk; older ones are deleted. .deployed and
+      # .deployed.previous list the files of the last two releases.
+      - name: Install
+        env:
+          SSHPASS: ${{ secrets.DEPLOY_SSH_PASSWORD }}
+        run: |
+          sshpass -e ssh -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" bash -s -- "$DEPLOY_PATH" <<'EOF'
+          set -euo pipefail
+          cd "$1"
+          test -s .release/index.html
+          new=$(mktemp)
+          keep=$(mktemp)
+          (cd .release && find . -type f | sed 's|^\./||' | sort) > "$new"
+          while read -r f; do
+            [ "$f" = index.html ] && continue
+            mkdir -p "$(dirname "$f")"
+            mv -f ".release/$f" "$f"
+          done < "$new"
+          mv -f .release/index.html index.html
+          rm -rf .release
+          touch .deployed .deployed.previous
+          sort -u "$new" .deployed > "$keep"
+          { grep -vxF -f "$keep" .deployed.previous || true; } | while read -r f; do
+            rm -f -- "$f"
+          done
+          mv -f .deployed .deployed.previous
+          mv -f "$new" .deployed
+          rm -f "$keep"
+          EOF
+
+      # No browser: the pages that must answer, the headers that guard the
+      # user's keys, and the files that must stay private.
+      - name: Smoke check
+        run: |
+          curl -fsS "$DEPLOY_URL/" | grep -q '<rr-root>'
+          curl -fsS "$DEPLOY_URL/settings" | grep -q '<rr-root>'
+          curl -fsS "$DEPLOY_URL/owner/some.repo/pull/1" | grep -q '<rr-root>'
+          headers=$(curl -fsSI "$DEPLOY_URL/")
+          grep -qi "^content-security-policy: default-src 'none'; script-src 'self';" <<<"$headers"
+          grep -qi '^referrer-policy: no-referrer' <<<"$headers"
+          for path in .htaccess .deployed .deployed.previous .release/index.html missing-AAAAAAAA.js; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' "$DEPLOY_URL/$path")
+            if [ "$status" = 200 ]; then
+              echo "::error::/$path answers $status"
+              exit 1
+            fi
+          done

@@ -1,0 +1,879 @@
+diff --git a/src/router/common.case.test.ts b/src/router/common.case.test.ts
+index f4ecae3fd0..fb7e13ee80 100644
+--- a/src/router/common.case.test.ts
++++ b/src/router/common.case.test.ts
+@@ -31,7 +31,7 @@ export const runTest = ({
+     beforeEach(({ task, skip: skipTask }) => {
+       const suites = getSuiteHierarchy(task.suite)
+       const name = [...suites.slice(2).map((s) => s.name), task.name].join(' > ')
+-      const isSkip = skip.find((s) => s.tests.includes(name))
++      const isSkip = skip.find((s) => s.tests.some((t) => name === t || name.startsWith(`${t} > `)))
+       if (isSkip) {
+         console.log(`Skip: ${isSkip.reason}`)
+         skipTask()
+@@ -131,6 +131,18 @@ export const runTest = ({
+         ['/assets*', '/assets', true],
+         ['/assets*', '/assets123', true],
+         ['/assets*', '/assets/foo', true],
++        ['/x*/*', '/x', true],
++        ['/x*/*', '/xz', true],
++        ['/x*/*', '/xz/y', true],
++        ['/x*/*', '/x/y/z', true],
++        ['/foo/*/*', '/foo', false],
++        ['/foo/*/*', '/foo/', false],
++        ['/foo/*/*', '/foo//', false],
++        ['/foo/*/*', '/foo//bar', false],
++        ['/foo/*/*', '/foo//bar/baz', false],
++        ['/foo/*/*', '/foo/x', true],
++        ['/foo/*/*', '/foo/x/', true],
++        ['/foo/*/*', '/foo/x/y/z', true],
+       ]
+ 
+       for (const [route, path, shouldMatch] of cases) {
+@@ -178,6 +190,23 @@ export const runTest = ({
+         expect(res[0].handler).toEqual('prefixed')
+       })
+ 
++      it.each(['/x*/y', '/x*/y/z', '/x*/y*'])(
++        'Prefixed wildcard in a parent segment: %s',
++        (path) => {
++          router.add('GET', '/x*/y*/*', 'handler')
++          expect(match('GET', path)).toEqual([{ handler: 'handler', params: {} }])
++        }
++      )
++
++      it('Should preserve repeated handlers on overlapping wildcard routes', () => {
++        router.add('GET', '/x*/*', 'handler')
++        router.add('GET', '/x*/y*/*', 'handler')
++        expect(match('GET', '/x*/y')).toEqual([
++          { handler: 'handler', params: {} },
++          { handler: 'handler', params: {} },
++        ])
++      })
++
+       it('Named parameter with a trailing wildcard', async () => {
+         router.add('GET', '/a/:id/*', 'param wildcard')
+         const res = match('GET', '/a/:id')
+@@ -1108,6 +1137,236 @@ export const runTest = ({
+       })
+     })
+ 
++    describe.each<[string, string, string, Params, Params]>([
++      ['/v1/*/*', '/v1/:a/:b', '/v1/x/y', {}, { a: 'x', b: 'y' }],
++      ['/v1/*/fixed/*', '/v1/:a/fixed/:b', '/v1/x/fixed/y', {}, { a: 'x', b: 'y' }],
++      [
++        '/v1/*/:id/*',
++        '/v1/:a/:b/:c/:d',
++        '/v1/first/second/third/fourth',
++        { id: 'second' },
++        { a: 'first', b: 'second', c: 'third', d: 'fourth' },
++      ],
++      [
++        '/v1/:first/*/:last/*',
++        '/v1/:a/:b/:c/:d',
++        '/v1/first/second/third/fourth',
++        { first: 'first', last: 'third' },
++        { a: 'first', b: 'second', c: 'third', d: 'fourth' },
++      ],
++    ])(
++      'Wildcard route %s with a parameter route',
++      (wildcardPath, routePath, requestPath, middlewareParams, handlerParams) => {
++        it.each([
++          { method: 'GET', reverse: false },
++          { method: 'GET', reverse: true },
++          { method: 'ALL', reverse: false },
++          { method: 'ALL', reverse: true },
++        ])('$method with reverse registration: $reverse', ({ method, reverse }) => {
++          const routes: [string, string, string][] = [
++            [method, wildcardPath, 'middleware'],
++            ['GET', routePath, 'handler'],
++          ]
++          const middleware = { handler: 'middleware', params: middlewareParams }
++          const expected = [middleware, { handler: 'handler', params: handlerParams }]
++          if (reverse) {
++            routes.reverse()
++            expected.reverse()
++          }
++          for (const route of routes) {
++            router.add(...route)
++          }
++
++          expect(match('GET', requestPath)).toEqual(expected)
++          expect(match('GET', `${requestPath}/z`)).toEqual([middleware])
++          expect(match('POST', requestPath)).toEqual(method === 'ALL' ? [middleware] : [])
++        })
++      }
++    )
++
++    describe('Overlapping wildcard routes', () => {
++      it.each([
++        { method: 'GET', reverse: false },
++        { method: 'GET', reverse: true },
++        { method: 'ALL', reverse: false },
++        { method: 'ALL', reverse: true },
++      ])('$method with reverse registration: $reverse', ({ method, reverse }) => {
++        const routes: [string, string, string][] = [
++          ['GET', '/v1/:a/*', 'parent'],
++          [method, '/v1/*/*/*', 'child'],
++        ]
++        const parent = { handler: 'parent', params: { a: 'x' } }
++        const child = { handler: 'child', params: {} }
++        const expected = [parent, child]
++        if (reverse) {
++          routes.reverse()
++          expected.reverse()
++        }
++        for (const route of routes) {
++          router.add(...route)
++        }
++
++        expect(match('GET', '/v1/x')).toEqual([parent])
++        expect(match('GET', '/v1/x/')).toEqual([parent])
++        expect(match('GET', '/v1/x/y/z')).toEqual(expected)
++        expect(match('POST', '/v1/x')).toEqual([])
++        expect(match('POST', '/v1/x/y/z')).toEqual(method === 'ALL' ? [child] : [])
++      })
++    })
++
++    describe('Parameter middleware with a wildcard route', () => {
++      it.each([
++        { routePath: '/v1/*/b', reverse: false },
++        { routePath: '/v1/*/b', reverse: true },
++        { routePath: '/v1/*/b/*', reverse: false },
++        { routePath: '/v1/*/b/*', reverse: true },
++      ])('$routePath with reverse registration: $reverse', ({ routePath, reverse }) => {
++        const routes: [string, string, string][] = [
++          ['GET', '/v1/:a/*', 'middleware'],
++          ['GET', routePath, 'handler'],
++        ]
++        const middleware = { handler: 'middleware', params: { a: 'x' } }
++        const expected = [middleware, { handler: 'handler', params: {} }]
++        if (reverse) {
++          routes.reverse()
++          expected.reverse()
++        }
++        for (const route of routes) {
++          router.add(...route)
++        }
++
++        expect(match('GET', '/v1/x/b')).toEqual(expected)
++        expect(match('GET', '/v1/x')).toEqual([middleware])
++      })
++    })
++
++    describe.each<[string, string, Params]>([
++      ['/prefix/:x{a}/*', '/prefix/a/static', { x: 'a' }],
++      ['/prefix/:x{a}/*', '/prefix/a', { x: 'a' }],
++      ['/prefix/:x{a}/:y{b}/*', '/prefix/a/b/static', { x: 'a', y: 'b' }],
++    ])('Parameter middleware %s with static route %s', (wildcardPath, routePath, params) => {
++      it.each([
++        { method: 'GET', reverse: false },
++        { method: 'GET', reverse: true },
++        { method: 'ALL', reverse: false },
++        { method: 'ALL', reverse: true },
++      ])('$method with reverse registration: $reverse', ({ method, reverse }) => {
++        const routes: [string, string, string][] = [
++          [method, wildcardPath, 'middleware'],
++          ['GET', routePath, 'handler'],
++        ]
++        const middleware = { handler: 'middleware', params }
++        const expected = [middleware, { handler: 'handler', params: {} }]
++        if (reverse) {
++          routes.reverse()
++          expected.reverse()
++        }
++        for (const route of routes) {
++          router.add(...route)
++        }
++
++        expect(match('GET', routePath)).toEqual(expected)
++        expect(match('GET', `${routePath}/more`)).toEqual([middleware])
++        expect(match('POST', routePath)).toEqual(method === 'ALL' ? [middleware] : [])
++      })
++    })
++
++    describe('Prefixed wildcard route with its prefix as a static route', () => {
++      it.each([
++        { method: 'GET', reverse: false },
++        { method: 'GET', reverse: true },
++        { method: 'ALL', reverse: false },
++        { method: 'ALL', reverse: true },
++      ])('$method with reverse registration: $reverse', ({ method, reverse }) => {
++        const routes: [string, string, string][] = [
++          [method, '/p/x*/*', 'middleware'],
++          ['GET', '/p/x', 'handler'],
++        ]
++        const middleware = { handler: 'middleware', params: {} }
++        const expected = [middleware, { handler: 'handler', params: {} }]
++        if (reverse) {
++          routes.reverse()
++          expected.reverse()
++        }
++        for (const route of routes) {
++          router.add(...route)
++        }
++
++        expect(match('GET', '/p/x')).toEqual(expected)
++        expect(match('GET', '/p/xz')).toEqual([middleware])
++        expect(match('GET', '/p/x/y')).toEqual([middleware])
++        expect(match('POST', '/p/x')).toEqual(method === 'ALL' ? [middleware] : [])
++      })
++    })
++
++    describe('Wildcard routes that end at the same segment', () => {
++      it.each([
++        { method: 'GET', reverse: false },
++        { method: 'GET', reverse: true },
++        { method: 'ALL', reverse: false },
++        { method: 'ALL', reverse: true },
++      ])('$method with reverse registration: $reverse', ({ method, reverse }) => {
++        const routes: [string, string, string][] = [
++          [method, '/x/a*', 'prefix'],
++          ['GET', '/x/a/*', 'tail'],
++        ]
++        const prefix = { handler: 'prefix', params: {} }
++        const expected = [prefix, { handler: 'tail', params: {} }]
++        if (reverse) {
++          routes.reverse()
++          expected.reverse()
++        }
++        for (const route of routes) {
++          router.add(...route)
++        }
++
++        expect(match('GET', '/x/a')).toEqual(expected)
++        expect(match('GET', '/x/a/q')).toEqual(expected)
++        expect(match('GET', '/x/ab')).toEqual([prefix])
++        expect(match('POST', '/x/a/q')).toEqual(method === 'ALL' ? [prefix] : [])
++      })
++
++      it('Should apply both wildcards to a nested route', () => {
++        router.add('GET', '/x/a*', 'prefix')
++        router.add('GET', '/x/a/*', 'tail')
++        router.add('GET', '/x/a/:id', 'route')
++        const prefix = { handler: 'prefix', params: {} }
++        const tail = { handler: 'tail', params: {} }
++        expect(match('GET', '/x/a/q')).toEqual([
++          prefix,
++          tail,
++          { handler: 'route', params: { id: 'q' } },
++        ])
++        expect(match('GET', '/x/a/q/r')).toEqual([prefix, tail])
++        expect(match('GET', '/x/a')).toEqual([prefix, tail])
++        expect(match('GET', '/x/ab')).toEqual([prefix])
++      })
++    })
++
++    describe('Middleware paths that do not nest', () => {
++      it('Should both apply to a route they both match', () => {
++        router.add('GET', '/:a/b/*', 'short')
++        router.add('GET', '/:aaaaaaa/*', 'long')
++        router.add('GET', '/:x/b/c', 'handler')
++        expect(match('GET', '/q/b/c')).toEqual([
++          { handler: 'short', params: { a: 'q' } },
++          { handler: 'long', params: { aaaaaaa: 'q' } },
++          { handler: 'handler', params: { x: 'q' } },
++        ])
++      })
++    })
++
++    describe('Parameter pattern identical to the label pattern', () => {
++      it('Should receive wildcard middleware', () => {
++        router.add('GET', '/v1/*/fixed/*', 'middleware')
++        router.add('GET', '/v1/:a{[^/]+}/fixed/:b', 'handler')
++        expect(match('GET', '/v1/x/fixed/y')).toEqual([
++          { handler: 'middleware', params: {} },
++          { handler: 'handler', params: { a: 'x', b: 'y' } },
++        ])
++      })
++    })
++
+     describe('ALL and Star', () => {
+       beforeEach(() => {
+         router.add('ALL', '/x', '/x')
+diff --git a/src/router/linear-router/router.test.ts b/src/router/linear-router/router.test.ts
+index 0bf292a5dd..fe766b747b 100644
+--- a/src/router/linear-router/router.test.ts
++++ b/src/router/linear-router/router.test.ts
+@@ -12,12 +12,25 @@ describe('LinearRouter', () => {
+           'Trailing wildcard after a middle wildcard > GET /acme/x/y with a named parameter',
+           'Complex > Parameter with {.*} regexp',
+           'Path segment equal to a pattern token > Named parameter with a trailing wildcard',
++          'Wildcard route /v1/*/:id/* with a parameter route',
++          'Wildcard route /v1/:first/*/:last/* with a parameter route',
+         ],
+       },
+     ],
+     newRouter: () => new LinearRouter(),
+   })
+ 
++  describe('Literal asterisks', () => {
++    it.each([
++      ['/x*y', '/x*y'],
++      ['/x*y/*', '/x*y'],
++    ])('Should match %s against %s', (route, path) => {
++      const router = new LinearRouter<string>()
++      router.add('GET', route, 'handler')
++      expect(router.match('GET', path)[0]).toEqual([['handler', {}]])
++    })
++  })
++
+   describe('Trailing wildcard after parameters', () => {
+     it.each([
+       ['/:tenant/*', '/acme', { tenant: 'acme' }],
+diff --git a/src/router/linear-router/router.ts b/src/router/linear-router/router.ts
+index f1d0e85479..6bba7e8e2e 100644
+--- a/src/router/linear-router/router.ts
++++ b/src/router/linear-router/router.ts
+@@ -7,7 +7,7 @@ type RegExpMatchArrayWithIndices = RegExpMatchArray & { indices: [number, number
+ const emptyParams = Object.create(null)
+ 
+ const splitPathRe = /\/(:\w+(?:{(?:(?:{[\d,]+})|[^}])+})?)|\/[^\/\?]+|\/$|(\?)/g
+-const splitByStarRe = /\*/
++const splitByStarRe = /\*(?=\/|$)/
+ export class LinearRouter<T> implements Router<T> {
+   name: string = 'LinearRouter'
+   #routes: [string, string, T][] = []
+@@ -49,9 +49,14 @@ export class LinearRouter<T> implements Router<T> {
+         } else if (hasStar && !hasLabel) {
+           const endsWithStar = routePath.charCodeAt(routePath.length - 1) === 42
+           const endsWithSlashStar = routePath.endsWith('/*')
+-          const parts = (
+-            endsWithStar ? routePath.slice(0, endsWithSlashStar ? -2 : -1) : routePath
+-          ).split(splitByStarRe)
++          // Split before removing the tail wildcard so a preceding literal `*` stays literal.
++          const parts = routePath.split(splitByStarRe)
++          if (endsWithStar) {
++            parts.pop()
++            if (endsWithSlashStar) {
++              parts[parts.length - 1] = parts[parts.length - 1].slice(0, -1)
++            }
++          }
+ 
+           const lastIndex = parts.length - 1
+           for (let j = 0, pos = 0, len = parts.length; j < len; j++) {
+@@ -73,11 +78,11 @@ export class LinearRouter<T> implements Router<T> {
+               // A standalone `*` segment consumes at least one character; one with a
+               // prefix may consume none.
+               const standalone = part.charCodeAt(part.length - 1) === 47
+-              const index = path.indexOf('/', standalone ? pos + 1 : pos)
+-              if (index === -1) {
++              if (standalone && (pos === path.length || path.charCodeAt(pos) === 47)) {
+                 continue ROUTES_LOOP
+               }
+-              pos = index
++              const index = path.indexOf('/', pos)
++              pos = index === -1 ? path.length : index
+             }
+           }
+           handlers.push([handler, emptyParams])
+diff --git a/src/router/reg-exp-router/node.ts b/src/router/reg-exp-router/node.ts
+index 282059fe67..9d7586db0d 100644
+--- a/src/router/reg-exp-router/node.ts
++++ b/src/router/reg-exp-router/node.ts
+@@ -3,7 +3,7 @@ import { createNullObject } from '../utils'
+ export const LABEL_REG_EXP_STR = '[^/]+'
+ // Match line terminators without changing the flags of user-defined parameter patterns.
+ export const ONLY_WILDCARD_REG_EXP_STR = '[^]*'
+-const PREFIXED_WILDCARD_REG_EXP_STR = '[^/]*'
++export const PREFIXED_WILDCARD_REG_EXP_STR = '[^/]*'
+ export const TAIL_WILDCARD_REG_EXP_STR = '(?:|/[^]*)'
+ export const PATH_ERROR = Symbol()
+ 
+@@ -29,9 +29,9 @@ function compareKey(a: string, b: string): number {
+     return 1
+   }
+ 
+-  // wildcard: the only wildcard precedes the tail wildcard
++  // wildcard: the tail wildcard precedes the only wildcard, which matches a superset of it
+   if (a === ONLY_WILDCARD_REG_EXP_STR || a === TAIL_WILDCARD_REG_EXP_STR) {
+-    return b === TAIL_WILDCARD_REG_EXP_STR ? -1 : 1
++    return b === ONLY_WILDCARD_REG_EXP_STR ? -1 : 1
+   } else if (b === ONLY_WILDCARD_REG_EXP_STR || b === TAIL_WILDCARD_REG_EXP_STR) {
+     return -1
+   }
+@@ -57,7 +57,7 @@ export class Node {
+     index: number,
+     paramMap: ParamAssocArray,
+     context: Context,
+-    isStatic: boolean
++    keys: string[]
+   ): void {
+     // eslint-disable-next-line @typescript-eslint/no-this-alias
+     let node: Node = this
+@@ -98,6 +98,7 @@ export class Node {
+           }
+         }
+ 
++        keys.push(regexpStr)
+         nextNode = node.#children[regexpStr]
+         if (!nextNode) {
+           if (
+@@ -125,6 +126,7 @@ export class Node {
+           paramMap.push([name, nextNode.#varIndex])
+         }
+       } else {
++        keys.push(token)
+         nextNode = node.#children[token]
+         if (!nextNode) {
+           for (const k in node.#children) {
+@@ -146,7 +148,7 @@ export class Node {
+     if (node.#index !== undefined) {
+       throw PATH_ERROR
+     }
+-    node.#index = isStatic ? -1 : index
++    node.#index = index
+   }
+ 
+   buildRegExpStr(): string {
+diff --git a/src/router/reg-exp-router/prepared-router.test.ts b/src/router/reg-exp-router/prepared-router.test.ts
+index 3cbde3bc89..b3453b00fd 100644
+--- a/src/router/reg-exp-router/prepared-router.test.ts
++++ b/src/router/reg-exp-router/prepared-router.test.ts
+@@ -60,6 +60,23 @@ describe('PreparedRegExpRouter', async () => {
+       expect(router.match('GET', '/hello')).toEqual([[['get hello', {}]], []])
+     })
+ 
++    it('should capture parameters of middleware on a static path', () => {
++      const params = buildInitParams({
++        paths: ['/prefix/:x{a}/*', '/prefix/a/static'],
++      })
++      const router = new PreparedRegExpRouter(...params)
++      router.add('GET', '/prefix/:x{a}/*', 'middleware')
++      router.add('GET', '/prefix/a/static', 'handler')
++      expect(router.match('GET', '/prefix/a/static')).toEqual([
++        [
++          ['middleware', { x: 1 }],
++          ['handler', {}],
++        ],
++        ['/prefix/a/static', 'a'],
++      ])
++      expect(router.match('POST', '/prefix/a/static')).toEqual([[], ['/prefix/a/static', 'a']])
++    })
++
+     it('should throw an error if the path is not pre-registered', () => {
+       const params = buildInitParams({
+         paths: ['/hello'],
+@@ -129,6 +146,34 @@ describe('buildInitParams() and serializeInitParams()', () => {
+     expect((0, eval)(serializeInitParams(params))).toEqual(params)
+   })
+ 
++  it('should build init params with a static path under parameter middleware', () => {
++    const params = buildInitParams({
++      paths: ['/prefix/:x{a}/*', '/prefix/a/static'],
++    })
++    expect(params).toEqual([
++      {
++        [METHOD_NAME_ALL]: [
++          /^\/prefix\/(a)(?:|\/[^]*)$()/,
++          [0, 0, []],
++          { '/prefix/a/static': [[], ['/prefix/a/static', 'a']] },
++        ],
++      },
++      {
++        '/prefix/:x{a}/*': [[[2, '/prefix/a/static'], { x: 1 }]],
++        '/prefix/a/static': [[['']]],
++      },
++    ])
++    expect((0, eval)(serializeInitParams(params))).toEqual(params)
++  })
++
++  it('should preserve undefined captures in a static path stash', () => {
++    const params = buildInitParams({
++      paths: ['/:z{Z}/*', '/:x{a}/*', '/a/q'],
++    })
++    expect(params[0][METHOD_NAME_ALL]![2]['/a/q'][1]).toEqual(['/a/q', undefined, undefined, 'a'])
++    expect((0, eval)(serializeInitParams(params))).toEqual(params)
++  })
++
+   it('should build init params with complex path', () => {
+     const params = buildInitParams({
+       paths: ['/hello', '/hello/:name', '/hello/:name/posts/:postId', '*'],
+diff --git a/src/router/reg-exp-router/prepared-router.ts b/src/router/reg-exp-router/prepared-router.ts
+index 5b0fed712a..292555121e 100644
+--- a/src/router/reg-exp-router/prepared-router.ts
++++ b/src/router/reg-exp-router/prepared-router.ts
+@@ -1,7 +1,7 @@
+ import type { ParamIndexMap, Result, Router } from '../../router'
+ import { METHOD_NAME_ALL } from '../../router'
+ import type { HandlerData, Matcher, MatcherMap, StaticMap } from './matcher'
+-import { match, emptyParam } from './matcher'
++import { match } from './matcher'
+ import { RegExpRouter } from './router'
+ 
+ type RelocateMap = Record<string, ([(number | string)[], ParamIndexMap] | [(number | string)[]])[]>
+@@ -49,7 +49,7 @@ export class PreparedRegExpRouter<T> implements Router<T> {
+       const all = this.#matchers[METHOD_NAME_ALL] as Matcher<T>
+       const staticMap = {} as StaticMap<T>
+       for (const key in all[2]) {
+-        staticMap[key] = [all[2][key][0].slice(), emptyParam] as Result<T>
++        staticMap[key] = [all[2][key][0].slice(), all[2][key][1]] as Result<T>
+       }
+       this.#matchers[method] = [
+         all[0],
+@@ -117,6 +117,7 @@ export const buildInitParams: (params: {
+       list.forEach(([p, map]) => {
+         if (p === path) {
+           if (relocateMap[path]) {
++            // an optional parameter registers one path per expansion, with different maps
+             relocateMap[path][0][1] = {
+               ...relocateMap[path][0][1],
+               ...map,
+@@ -124,7 +125,7 @@ export const buildInitParams: (params: {
+           } else {
+             relocateMap[path] = [[[], map]]
+           }
+-          if (relocateMap[path][0][0].findIndex((j) => j === i) === -1) {
++          if (!relocateMap[path][0][0].includes(i)) {
+             relocateMap[path][0][0].push(i)
+           }
+         }
+@@ -135,7 +136,7 @@ export const buildInitParams: (params: {
+         if (p === path) {
+           relocateMap[path] ||= [[[]]]
+           const value = path2 === path ? '' : path2
+-          if (relocateMap[path][0][0].findIndex((v) => v === value) === -1) {
++          if (!relocateMap[path][0][0].includes(value)) {
+             relocateMap[path][0][0].push(value)
+           }
+         }
+@@ -156,9 +157,9 @@ export const buildInitParams: (params: {
+ export const serializeInitParams: (
+   params: ConstructorParameters<typeof PreparedRegExpRouter>
+ ) => string = ([matchers, relocateMap]) => {
+-  // Embed the regular expression as a result of `toString()` so that it can be evaluated as JavaScript.
++  // Embed regular expressions and undefined captures as JavaScript, which JSON cannot express.
+   const matchersStr = JSON.stringify(matchers, (_, value) =>
+-    value instanceof RegExp ? `##${value.toString()}##` : value
++    value instanceof RegExp || value === undefined ? `##${value}##` : value
+   ).replace(/"##(.+?)##"/g, (_, str) => str.replace(/\\\\/g, '\\'))
+   const relocateMapStr = JSON.stringify(relocateMap)
+   return `[${matchersStr},${relocateMapStr}]`
+diff --git a/src/router/reg-exp-router/router.test.ts b/src/router/reg-exp-router/router.test.ts
+index 3be46bb2a9..b003dec4e0 100644
+--- a/src/router/reg-exp-router/router.test.ts
++++ b/src/router/reg-exp-router/router.test.ts
+@@ -231,20 +231,6 @@ describe('RegExpRouter', () => {
+       expect(res[0][0]).toBe('label')
+       expect(res[1][0]).toBe('wildcard')
+     })
+-
+-    it('Should prioritize the only wildcard over the tail wildcard regardless of the order', () => {
+-      for (const paths of [
+-        ['/a*', '/a/*'],
+-        ['/a/*', '/a*'],
+-      ]) {
+-        const router = new RegExpRouter<string>()
+-        for (const path of paths) {
+-          router.add('GET', path, path)
+-        }
+-        const [res] = router.match('GET', '/a')
+-        expect(res[0][0]).toBe('/a*')
+-      }
+-    })
+   })
+ 
+   describe('Single character regexp pattern', () => {
+diff --git a/src/router/reg-exp-router/router.ts b/src/router/reg-exp-router/router.ts
+index 528d5b444b..cc49f6e1de 100644
+--- a/src/router/reg-exp-router/router.ts
++++ b/src/router/reg-exp-router/router.ts
+@@ -9,51 +9,43 @@ import { createNullObject } from '../utils'
+ import type { HandlerData, StaticMap, Matcher, MatcherMap } from './matcher'
+ import { match, emptyParam } from './matcher'
+ import {
+-  LABEL_REG_EXP_STR,
+   ONLY_WILDCARD_REG_EXP_STR,
+   PATH_ERROR,
++  PREFIXED_WILDCARD_REG_EXP_STR,
+   TAIL_WILDCARD_REG_EXP_STR,
+ } from './node'
+ import { Trie } from './trie'
+ 
+ type HandlerWithMetadata<T> = [T, string] // [handler, path]
+ 
+-let wildcardRegExpCache: Record<string, RegExp> = createNullObject()
+-function buildWildcardRegExp(path: string): RegExp {
+-  return (wildcardRegExpCache[path] ??= new RegExp(
+-    `^${path.replace(
+-      /\/:[^/{}]+(?:\{\[\^\/]\+})?(?=[/{]|$)|\/?\*$|([.\\+*[^\]$()?{}|])/g,
+-      (match, metaChar) =>
+-        metaChar
+-          ? `\\${metaChar}`
+-          : match === '/*'
+-            ? TAIL_WILDCARD_REG_EXP_STR
+-            : match === '*'
+-              ? ONLY_WILDCARD_REG_EXP_STR
+-              : `/:${LABEL_REG_EXP_STR}`
+-    )}$`
+-  ))
++function endsWithWildcard(keys: string[]): boolean {
++  const tail = keys[keys.length - 1]
++  return tail === ONLY_WILDCARD_REG_EXP_STR || tail === TAIL_WILDCARD_REG_EXP_STR
+ }
+ 
+-function findMiddleware<T>(middleware: Record<string, T[]>, path: string): T[] | undefined {
+-  for (const k of Object.keys(middleware).sort((a, b) => b.length - a.length)) {
+-    if (buildWildcardRegExp(k).test(path)) {
+-      return [...middleware[k]]
++// Whether `wildcard`, a branch ending with a wildcard, matches every request `target` matches:
++// `wildcard` minus its wildcard is a prefix of `target`, and a `/*` also needs a boundary there.
++function covers(wildcard: string[], target: string[]): boolean {
++  const last = wildcard.length - 1
++  for (let i = 0; i < last; i++) {
++    if (wildcard[i] !== target[i]) {
++      // `x*` right before the trailing `/*` may take nothing, so `/x*/*` also matches `/x`
++      return i === last - 1 && wildcard[i] === PREFIXED_WILDCARD_REG_EXP_STR && target.length === i
+     }
+   }
+-
+-  return undefined
++  return (
++    wildcard[last] === ONLY_WILDCARD_REG_EXP_STR || target.length === last || target[last] === '/'
++  )
+ }
+ 
+ export class RegExpRouter<T> implements Router<T> {
+   name: string = 'RegExpRouter'
+-  #middleware?: Record<string, Record<string, HandlerWithMetadata<T>[]>>
+-  #routes?: Record<string, Record<string, HandlerWithMetadata<T>[]>>
++  // method -> handlers in registration order; a method starts with a copy of ALL's
++  #handlers?: Record<string, HandlerWithMetadata<T>[]>
+   #tries?: Record<string, Trie>
+ 
+   constructor() {
+-    this.#middleware = { [METHOD_NAME_ALL]: createNullObject() }
+-    this.#routes = { [METHOD_NAME_ALL]: createNullObject() }
++    this.#handlers = { [METHOD_NAME_ALL]: [] }
+     this.#tries = { [METHOD_NAME_ALL]: new Trie() }
+   }
+ 
+@@ -66,62 +58,31 @@ export class RegExpRouter<T> implements Router<T> {
+   }
+ 
+   add(method: string, path: string, handler: T) {
+-    const middleware = this.#middleware
+-    const routes = this.#routes!
+-
+-    if (!middleware) {
++    const handlers = this.#handlers
++    if (!handlers) {
+       throw new Error(MESSAGE_MATCHER_IS_ALREADY_BUILT)
+     }
+ 
+-    if (!middleware[method]) {
+-      this.#tries![method] = new Trie()
+-      for (const handlerMap of [middleware, routes]) {
+-        handlerMap[method] = createNullObject()
+-        for (const p in handlerMap[METHOD_NAME_ALL]) {
+-          handlerMap[method][p] = [...handlerMap[METHOD_NAME_ALL][p]]
+-          this.#insertPath(method, p)
+-        }
++    const tries = this.#tries!
++    if (!handlers[method]) {
++      tries[method] = new Trie()
++      handlers[method] = [...handlers[METHOD_NAME_ALL]]
++      for (const p in tries[METHOD_NAME_ALL].paths) {
++        this.#insertPath(method, p)
+       }
+     }
+ 
+     if (path === '/*') {
+       path = '*'
+     }
+-    const methods = method === METHOD_NAME_ALL ? Object.keys(middleware) : [method]
+-
+-    if (/\*$/.test(path)) {
+-      const re = buildWildcardRegExp(path)
+-      for (const m of methods) {
+-        if (!middleware[m][path]) {
+-          this.#insertPath(m, path)
+-          middleware[m][path] =
+-            findMiddleware(middleware[m], path) ||
+-            findMiddleware(middleware[METHOD_NAME_ALL], path) ||
+-            []
+-        }
+-      }
+-      for (const handlerMap of [middleware, routes]) {
+-        for (const m of methods) {
+-          for (const p in handlerMap[m]) {
+-            re.test(p) && handlerMap[m][p].push([handler, path])
+-          }
+-        }
+-      }
+-
+-      return
+-    }
+-
++    const methods = method === METHOD_NAME_ALL ? Object.keys(handlers) : [method]
+     const paths = checkOptionalParameter(path) || [path]
+     for (const path of paths) {
+       for (const m of methods) {
+-        if (!routes[m][path]) {
++        if (!tries[m].paths[path]) {
+           this.#insertPath(m, path)
+-          routes[m][path] =
+-            findMiddleware(middleware[m], path) ||
+-            findMiddleware(middleware[METHOD_NAME_ALL], path) ||
+-            []
+         }
+-        routes[m][path].push([handler, path])
++        handlers[m].push([handler, path])
+       }
+     }
+   }
+@@ -131,41 +92,53 @@ export class RegExpRouter<T> implements Router<T> {
+   protected buildAllMatchers(): MatcherMap<T> {
+     const matchers: MatcherMap<T> = createNullObject()
+ 
+-    for (const method of Object.keys(this.#routes!)) {
++    for (const method of Object.keys(this.#handlers!)) {
+       matchers[method] = this.#buildMatcher(method)
+     }
+ 
+     // Release cache
+-    this.#middleware = this.#routes = this.#tries = undefined
+-    wildcardRegExpCache = createNullObject()
++    this.#handlers = this.#tries = undefined
+ 
+     return matchers
+   }
+ 
+   #buildMatcher(method: string): Matcher<T> {
+-    const middleware = this.#middleware![method]
+-    const routes = this.#routes![method]
+-
++    const handlers = this.#handlers![method]
+     const trie = this.#tries![method]
+     const staticMap: StaticMap<T> = createNullObject()
+     const handlerData: HandlerData<T>[] = []
+     const [regexp, indexReplacementMap, paramReplacementMap] = trie.buildRegExp()
+ 
+-    for (const r of [middleware, routes]) {
+-      for (const path in r) {
+-        const handlers = r[path]
+-        const pathData = trie.paths[path]
+-        if (!pathData) {
+-          staticMap[path] = [handlers.map(([h]) => [h, createNullObject()]), emptyParam]
+-          continue
++    // path -> indexes into `handlers`
++    const own: Record<string, number[]> = createNullObject()
++    const entries: HandlerData<T> = handlers.map(([h, p], i) => {
++      ;(own[p] ??= []).push(i)
++      return [
++        h,
++        trie.paths[p][1].reduceRight((map, [key, varIndex]) => {
++          map[key] = paramReplacementMap[varIndex]
++          return map
++        }, createNullObject()),
++      ]
++    })
++    const wildcards = Object.keys(own).filter((p) => endsWithWildcard(trie.paths[p][2]))
++
++    for (const path in trie.paths) {
++      const [index, , keys] = trie.paths[path]
++      const indexes = [...own[path]]
++      for (const p of wildcards) {
++        if (p !== path && covers(trie.paths[p][2], keys)) {
++          indexes.push(...own[p])
+         }
+-        handlerData[pathData[0]] = handlers.map(([h, handlerPath]) => [
+-          h,
+-          trie.paths[handlerPath][1].reduceRight((map, [key], i) => {
+-            map[key] = paramReplacementMap[pathData[1][i][1]]
+-            return map
+-          }, createNullObject()),
+-        ])
++      }
++      const data: HandlerData<T> = indexes.sort((a, b) => a - b).map((i) => entries[i])
++      if (index === -1) {
++        // A static path can share literal nodes with parameter middleware such as /:id{a}/*.
++        // Keep only the captures its handlers reference, as a plain array.
++        const last = Math.max(-1, ...data.flatMap(([, map]) => Object.values(map)))
++        staticMap[path] = [data, last === -1 ? emptyParam : path.match(regexp)!.slice(0, last + 1)]
++      } else {
++        handlerData[index] = data
+       }
+     }
+ 
+diff --git a/src/router/reg-exp-router/trie.ts b/src/router/reg-exp-router/trie.ts
+index e09710129b..7aa323e3a0 100644
+--- a/src/router/reg-exp-router/trie.ts
++++ b/src/router/reg-exp-router/trie.ts
+@@ -8,13 +8,15 @@ export class Trie {
+   #context: Context = { varIndex: 0 }
+   #root: Node = new Node()
+   #index: number = 0
+-  // dynamic path -> [handler index, param assoc]; static paths are not registered
+-  paths: Record<string, [number, ParamAssocArray]> = createNullObject()
++  // path -> [handler index (-1 for a static path), param assoc, node keys along the branch]
++  paths: Record<string, [number, ParamAssocArray, string[]]> = createNullObject()
+ 
+   insert(path: string, isStatic: boolean): void {
++    const keys: string[] = []
+     if (isStatic) {
+       // a static path has no pattern; every character is a literal token
+-      this.#root.insert(path.split(''), 0, [], this.#context, true)
++      this.#root.insert(path.split(''), -1, [], this.#context, keys)
++      this.paths[path] = [-1, [], keys]
+       return
+     }
+ 
+@@ -52,8 +54,8 @@ export class Trie {
+       }
+     }
+ 
+-    this.#root.insert(tokens, this.#index, paramAssoc, this.#context, false)
+-    this.paths[path] = [this.#index++, paramAssoc]
++    this.#root.insert(tokens, this.#index, paramAssoc, this.#context, keys)
++    this.paths[path] = [this.#index++, paramAssoc, keys]
+   }
+ 
+   buildRegExp(): [RegExp, ReplacementMap, ReplacementMap] {
+diff --git a/src/router/trie-router/node.ts b/src/router/trie-router/node.ts
+index c5fd3764ea..d9874340ef 100644
+--- a/src/router/trie-router/node.ts
++++ b/src/router/trie-router/node.ts
+@@ -103,24 +103,17 @@ export class Node<T> {
+         const node = curNodes[j]
+         const nextNode = node.#children[part]
+ 
+-        // A pattern node is also stored in `#children` under its key, so a part that is
+-        // literally that key arrives here as well as in the pattern loop below. Each job below
+-        // leaves pattern nodes to that loop, and the set it leaves differs per job.
+-        if (nextNode) {
++        // Pattern nodes are also stored in `#children`; leave them to the pattern loop
++        // below even when the request segment is literally their key.
++        if (nextNode && nextNode.#pattern === undefined) {
+           nextNode.#params = node.#params
+           if (isLast) {
+-            // '/hello/*' => match '/hello'. The loop makes this push itself when an array
+-            // pattern matches, and never for a string one.
+-            if (nextNode.#children['*'] && !Array.isArray(nextNode.#pattern)) {
++            // '/hello/*' => match '/hello'.
++            if (nextNode.#children['*']) {
+               this.#pushHandlerSets(handlerSets, nextNode.#children['*'], method, node.#params)
+             }
+-            // The loop matches any pattern node whose pattern accepts the part.
+-            if (nextNode.#pattern === undefined) {
+-              this.#pushHandlerSets(handlerSets, nextNode, method, node.#params)
+-            }
+-          } else if (nextNode.#pattern !== '*' && !Array.isArray(nextNode.#pattern)) {
+-            // The loop descends through `*` and parameters itself, but not through a
+-            // prefixed wildcard.
++            this.#pushHandlerSets(handlerSets, nextNode, method, node.#params)
++          } else {
+             tempNodes.push(nextNode)
+           }
+         }
+@@ -137,6 +130,10 @@ export class Node<T> {
+               // A standalone `*` consumes at least one character before another segment
+               // can follow it; one with a prefix may consume none.
+               if (pattern !== '*' || part !== '') {
++                // '/x*/*' => match '/x', '/a/*/*' => match '/a/b'
++                if (isLast && child.#children['*']) {
++                  this.#pushHandlerSets(handlerSets, child.#children['*'], method, node.#params)
++                }
+                 child.#params = params
+                 tempNodes.push(child)
+               }

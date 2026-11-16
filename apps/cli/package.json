@@ -1,0 +1,17 @@
+{
+  "name": "@ripple-review/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "ripple": "./src/cli.ts"
+  },
+  "scripts": {
+    "test:unit": "bun --bun vitest run src"
+  },
+  "nx": {
+    "targets": {
+      "typecheck": {}
+    }
+  }
+}

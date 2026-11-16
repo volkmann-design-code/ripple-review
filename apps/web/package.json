@@ -1,0 +1,55 @@
+{
+  "name": "@ripple-review/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "ng serve",
+    "build": "ng build",
+    "test:unit": "bun --bun vitest run src"
+  },
+  "nx": {
+    "targets": {
+      "typecheck": {
+        "executor": "nx:run-commands",
+        "options": {
+          "cwd": "apps/web",
+          "commands": [
+            "./node_modules/.bin/ngc --noEmit --rootDir ../.. -p tsconfig.app.json",
+            "../../node_modules/.bin/tsc --noEmit --rootDir ../.. -p tsconfig.worker.json"
+          ],
+          "parallel": false
+        }
+      },
+      "build": {
+        "executor": "nx:run-commands",
+        "options": {
+          "cwd": "apps/web",
+          "command": "./node_modules/.bin/ng build"
+        },
+        "outputs": [
+          "{projectRoot}/dist"
+        ]
+      }
+    }
+  },
+  "dependencies": {
+    "@angular/common": "22.2.4",
+    "@angular/compiler": "22.2.4",
+    "@angular/core": "22.2.4",
+    "@angular/forms": "22.2.4",
+    "@angular/platform-browser": "22.2.4",
+    "@angular/router": "22.2.4",
+    "@material-symbols/svg-400": "0.48.2",
+    "rxjs": "7.8.2",
+    "shiki": "4.5.0",
+    "tslib": "2.8.1"
+  },
+  "devDependencies": {
+    "@angular/build": "22.2.5",
+    "@angular/cli": "22.2.5",
+    "@angular/compiler-cli": "22.2.4",
+    "@tailwindcss/postcss": "4.2.4",
+    "tailwindcss": "4.2.2"
+  }
+}

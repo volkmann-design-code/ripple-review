@@ -1,0 +1,21 @@
+{
+  "name": "@ripple-review/ai-anthropic",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/anthropic.ts"
+  },
+  "scripts": {
+    "test:unit": "bun --bun vitest run src"
+  },
+  "nx": {
+    "targets": {
+      "typecheck": {}
+    }
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.6.0"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "name": "@ripple-review/adapter-typescript",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/typescript.ts"
+  },
+  "dependencies": {
+    "typescript": "5.9.3"
+  },
+  "scripts": {
+    "test:unit": "bun --bun vitest run src"
+  },
+  "nx": {
+    "targets": {
+      "typecheck": {}
+    }
+  }
+}

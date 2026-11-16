@@ -1,0 +1,628 @@
+diff --git a/components/metrics/EventsChart.js b/components/metrics/EventsChart.js
+index ef9a142fb4..50dc940d20 100644
+--- a/components/metrics/EventsChart.js
++++ b/components/metrics/EventsChart.js
+@@ -12,7 +12,7 @@ export default function EventsChart({ websiteId, className, token }) {
+   const [{ startDate, endDate, unit, modified }] = useDateRange(websiteId);
+   const [timezone] = useTimezone();
+   const {
+-    query: { url, eventType },
++    query: { url, eventName },
+   } = usePageQuery();
+ 
+   const { data, loading } = useFetch(
+@@ -24,11 +24,11 @@ export default function EventsChart({ websiteId, className, token }) {
+         unit,
+         tz: timezone,
+         url,
+-        event_type: eventType,
++        event_name: eventName,
+         token,
+       },
+     },
+-    [modified, eventType],
++    [modified, eventName],
+   );
+ 
+   const datasets = useMemo(() => {
+diff --git a/components/metrics/RealtimeLog.js b/components/metrics/RealtimeLog.js
+index f4e878347e..278f64a4e2 100644
+--- a/components/metrics/RealtimeLog.js
++++ b/components/metrics/RealtimeLog.js
+@@ -92,8 +92,7 @@ export default function RealtimeLog({ data, websites, websiteId }) {
+   }
+ 
+   function getDetail({
+-    event_type,
+-    event_value,
++    event_name,
+     view_id,
+     session_id,
+     url,
+@@ -103,10 +102,10 @@ export default function RealtimeLog({ data, websites, websiteId }) {
+     device,
+     website_id,
+   }) {
+-    if (event_type) {
++    if (event_name) {
+       return (
+         <div>
+-          <Tag>{event_type}</Tag> {event_value}
++          <Tag>{event_name}</Tag>
+         </div>
+       );
+     }
+diff --git a/components/pages/TestConsole.js b/components/pages/TestConsole.js
+index 9f4d7ca24c..8a2afa886f 100644
+--- a/components/pages/TestConsole.js
++++ b/components/pages/TestConsole.js
+@@ -37,7 +37,8 @@ export default function TestConsole() {
+   function handleClick() {
+     window.umami('event (default)');
+     window.umami.trackView('/page-view', 'https://www.google.com');
+-    window.umami.trackEvent('event (custom)', 'custom-type');
++    window.umami.trackEvent('event (custom)', null, 'custom-type');
++    window.umami.trackEvent('event (custom)', { test: 'test-data' }, 'custom-data-type');
+   }
+ 
+   return (
+diff --git a/db/mysql/migrations/02_add_event_data/migration.sql b/db/mysql/migrations/02_add_event_data/migration.sql
+new file mode 100644
+index 0000000000..c210895d39
+--- /dev/null
++++ b/db/mysql/migrations/02_add_event_data/migration.sql
+@@ -0,0 +1,62 @@
++-- DropForeignKey
++ALTER TABLE `event` DROP FOREIGN KEY `event_ibfk_1`;
++ALTER TABLE `event` DROP FOREIGN KEY `event_ibfk_2`;
++
++DROP INDEX `event_created_at_idx` ON `event`;
++DROP INDEX `event_session_id_idx` ON `event`;
++DROP INDEX `event_website_id_idx` ON `event`;
++
++CREATE INDEX `event_old_created_at_idx` ON `event` (created_at);
++CREATE INDEX `event_old_session_id_idx` ON `event` (session_id);
++CREATE INDEX `event_old_website_id_idx` ON `event` (website_id);
++
++-- RenameTable
++RENAME TABLE `event` TO `_event_old`;
++
++-- CreateTable
++CREATE TABLE `event`
++(
++    `event_id` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT,
++    `website_id` INTEGER UNSIGNED NOT NULL,
++    `session_id` INTEGER UNSIGNED NOT NULL,
++    `created_at` TIMESTAMP(0) NULL DEFAULT CURRENT_TIMESTAMP(0),
++    `url` VARCHAR(500) NOT NULL,
++    `event_name` VARCHAR(50) NOT NULL,
++
++    INDEX `event_created_at_idx`(`created_at`),
++    INDEX `event_session_id_idx`(`session_id`),
++    INDEX `event_website_id_idx`(`website_id`),
++    PRIMARY KEY (`event_id`)
++) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
++
++-- AddForeignKey
++ALTER TABLE `event` ADD CONSTRAINT `event_ibfk_2` FOREIGN KEY (`session_id`) REFERENCES `session`(`session_id`) ON DELETE CASCADE ON UPDATE NO ACTION;
++
++-- AddForeignKey
++ALTER TABLE `event` ADD CONSTRAINT `event_ibfk_1` FOREIGN KEY (`website_id`) REFERENCES `website`(`website_id`) ON DELETE CASCADE ON UPDATE NO ACTION;
++
++
++-- CreateTable
++CREATE TABLE `event_data` (
++    `event_data_id` INTEGER NOT NULL AUTO_INCREMENT,
++    `event_id` INTEGER UNSIGNED NOT NULL,
++    `event_data` JSON NOT NULL,
++
++    UNIQUE INDEX `event_data_event_id_key`(`event_id`),
++    PRIMARY KEY (`event_data_id`)
++) ENGINE=InnoDB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
++
++-- AddForeignKey
++ALTER TABLE `event_data` ADD CONSTRAINT `event_data_event_id_fkey` FOREIGN KEY (`event_id`) REFERENCES `event`(`event_id`) ON DELETE RESTRICT ON UPDATE CASCADE;
++
++-- RenameIndex
++ALTER TABLE `account` RENAME INDEX `username` TO `account_username_key`;
++
++-- RenameIndex
++ALTER TABLE `session` RENAME INDEX `session_uuid` TO `session_session_uuid_key`;
++
++-- RenameIndex
++ALTER TABLE `website` RENAME INDEX `share_id` TO `website_share_id_key`;
++
++-- RenameIndex
++ALTER TABLE `website` RENAME INDEX `website_uuid` TO `website_website_uuid_key`;
+\ No newline at end of file
+diff --git a/db/mysql/schema.prisma b/db/mysql/schema.prisma
+index e298514270..7b7036a7fc 100644
+--- a/db/mysql/schema.prisma
++++ b/db/mysql/schema.prisma
+@@ -9,7 +9,7 @@ datasource db {
+ 
+ model account {
+   user_id    Int       @id @default(autoincrement()) @db.UnsignedInt
+-  username   String    @unique(map: "username") @db.VarChar(255)
++  username   String    @unique() @db.VarChar(255)
+   password   String    @db.VarChar(60)
+   is_admin   Boolean   @default(false)
+   created_at DateTime? @default(now()) @db.Timestamp(0)
+@@ -18,21 +18,28 @@ model account {
+ }
+ 
+ model event {
+-  event_id    Int       @id @default(autoincrement()) @db.UnsignedInt
+-  website_id  Int       @db.UnsignedInt
+-  session_id  Int       @db.UnsignedInt
+-  created_at  DateTime? @default(now()) @db.Timestamp(0)
+-  url         String    @db.VarChar(500)
+-  event_type  String    @db.VarChar(50)
+-  event_value String    @db.VarChar(50)
+-  session     session   @relation(fields: [session_id], references: [session_id], onDelete: Cascade, onUpdate: NoAction, map: "event_ibfk_2")
+-  website     website   @relation(fields: [website_id], references: [website_id], onDelete: Cascade, onUpdate: NoAction, map: "event_ibfk_1")
++  event_id   Int         @id @default(autoincrement()) @db.UnsignedInt
++  website_id Int         @db.UnsignedInt
++  session_id Int         @db.UnsignedInt
++  created_at DateTime?   @default(now()) @db.Timestamp(0)
++  url        String      @db.VarChar(500)
++  event_name String      @db.VarChar(50)
++  session    session     @relation(fields: [session_id], references: [session_id], onDelete: Cascade, onUpdate: NoAction, map: "event_ibfk_2")
++  website    website     @relation(fields: [website_id], references: [website_id], onDelete: Cascade, onUpdate: NoAction, map: "event_ibfk_1")
++  event_data event_data?
+ 
+   @@index([created_at])
+   @@index([session_id])
+   @@index([website_id])
+ }
+ 
++model event_data {
++  event_data_id Int   @id @default(autoincrement())
++  event_id      Int   @unique @db.UnsignedInt
++  event_data    Json
++  event         event @relation(fields: [event_id], references: [event_id])
++}
++
+ model pageview {
+   view_id    Int       @id @default(autoincrement()) @db.UnsignedInt
+   website_id Int       @db.UnsignedInt
+@@ -52,7 +59,7 @@ model pageview {
+ 
+ model session {
+   session_id   Int        @id @default(autoincrement()) @db.UnsignedInt
+-  session_uuid String     @unique(map: "session_uuid") @db.VarChar(36)
++  session_uuid String     @unique() @db.VarChar(36)
+   website_id   Int        @db.UnsignedInt
+   created_at   DateTime?  @default(now()) @db.Timestamp(0)
+   hostname     String?    @db.VarChar(100)
+@@ -72,11 +79,11 @@ model session {
+ 
+ model website {
+   website_id   Int        @id @default(autoincrement()) @db.UnsignedInt
+-  website_uuid String     @unique(map: "website_uuid") @db.VarChar(36)
++  website_uuid String     @unique() @db.VarChar(36)
+   user_id      Int        @db.UnsignedInt
+   name         String     @db.VarChar(100)
+   domain       String?    @db.VarChar(500)
+-  share_id     String?    @unique(map: "share_id") @db.VarChar(64)
++  share_id     String?    @unique() @db.VarChar(64)
+   created_at   DateTime?  @default(now()) @db.Timestamp(0)
+   account      account    @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction, map: "website_ibfk_1")
+   event        event[]
+diff --git a/db/postgresql/migrations/02_add_event_data/migration.sql b/db/postgresql/migrations/02_add_event_data/migration.sql
+new file mode 100644
+index 0000000000..62587e29b0
+--- /dev/null
++++ b/db/postgresql/migrations/02_add_event_data/migration.sql
+@@ -0,0 +1,66 @@
++-- DropForeignKey
++ALTER TABLE "event" DROP CONSTRAINT "event_session_id_fkey";
++ALTER TABLE "event" DROP CONSTRAINT "event_website_id_fkey";
++
++-- RenameIndex
++ALTER INDEX "event_pkey" RENAME TO "event_old_pkey";
++ALTER INDEX "event_created_at_idx" RENAME TO "event_old_created_at_idx";
++ALTER INDEX "event_session_id_idx" RENAME TO "event_old_session_id_idx";
++ALTER INDEX "event_website_id_idx" RENAME TO "event_old_website_id_idx";
++
++-- RenameTable
++ALTER TABLE "event" RENAME TO "_event_old";
++
++-- CreateTable
++CREATE TABLE "event" (
++    "event_id" SERIAL NOT NULL,
++    "website_id" INTEGER NOT NULL,
++    "session_id" INTEGER NOT NULL,
++    "created_at" TIMESTAMPTZ(6) DEFAULT CURRENT_TIMESTAMP,
++    "url" VARCHAR(500) NOT NULL,
++    "event_name" VARCHAR(50) NOT NULL,
++
++    PRIMARY KEY ("event_id")
++);
++
++-- CreateIndex
++CREATE INDEX "event_created_at_idx" ON "event"("created_at");
++
++-- CreateIndex
++CREATE INDEX "event_session_id_idx" ON "event"("session_id");
++
++-- CreateIndex
++CREATE INDEX "event_website_id_idx" ON "event"("website_id");
++
++-- AddForeignKey
++ALTER TABLE "event" ADD CONSTRAINT "event_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("session_id") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- AddForeignKey
++ALTER TABLE "event" ADD CONSTRAINT "event_website_id_fkey" FOREIGN KEY ("website_id") REFERENCES "website"("website_id") ON DELETE CASCADE ON UPDATE CASCADE;
++
++-- CreateTable
++CREATE TABLE "event_data" (
++    "event_data_id" SERIAL NOT NULL,
++    "event_id" INTEGER NOT NULL,
++    "event_data" JSONB NOT NULL,
++
++    CONSTRAINT "event_data_pkey" PRIMARY KEY ("event_data_id")
++);
++
++-- CreateIndex
++CREATE UNIQUE INDEX "event_data_event_id_key" ON "event_data"("event_id");
++
++-- AddForeignKey
++ALTER TABLE "event_data" ADD CONSTRAINT "event_data_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "event"("event_id") ON DELETE RESTRICT ON UPDATE CASCADE;
++
++-- RenameIndex
++ALTER INDEX "account.username_unique" RENAME TO "account_username_key";
++
++-- RenameIndex
++ALTER INDEX "session.session_uuid_unique" RENAME TO "session_session_uuid_key";
++
++-- RenameIndex
++ALTER INDEX "website.share_id_unique" RENAME TO "website_share_id_key";
++
++-- RenameIndex
++ALTER INDEX "website.website_uuid_unique" RENAME TO "website_website_uuid_key";
+\ No newline at end of file
+diff --git a/db/postgresql/schema.prisma b/db/postgresql/schema.prisma
+index 6e974de8a9..880cc27c0c 100644
+--- a/db/postgresql/schema.prisma
++++ b/db/postgresql/schema.prisma
+@@ -18,21 +18,28 @@ model account {
+ }
+ 
+ model event {
+-  event_id    Int       @id @default(autoincrement())
+-  website_id  Int
+-  session_id  Int
+-  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+-  url         String    @db.VarChar(500)
+-  event_type  String    @db.VarChar(50)
+-  event_value String    @db.VarChar(50)
+-  session     session   @relation(fields: [session_id], references: [session_id], onDelete: Cascade, onUpdate: NoAction)
+-  website     website   @relation(fields: [website_id], references: [website_id], onDelete: Cascade, onUpdate: NoAction)
++  event_id   Int         @id @default(autoincrement())
++  website_id Int
++  session_id Int
++  created_at DateTime?   @default(now()) @db.Timestamptz(6)
++  url        String      @db.VarChar(500)
++  event_name String      @db.VarChar(50)
++  session    session     @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
++  website    website     @relation(fields: [website_id], references: [website_id], onDelete: Cascade)
++  event_data event_data?
+ 
+   @@index([created_at])
+   @@index([session_id])
+   @@index([website_id])
+ }
+ 
++model event_data {
++  event_data_id Int   @id @default(autoincrement())
++  event_id      Int   @unique
++  event_data    Json
++  event         event @relation(fields: [event_id], references: [event_id])
++}
++
+ model pageview {
+   view_id    Int       @id @default(autoincrement())
+   website_id Int
+@@ -40,8 +47,8 @@ model pageview {
+   created_at DateTime? @default(now()) @db.Timestamptz(6)
+   url        String    @db.VarChar(500)
+   referrer   String?   @db.VarChar(500)
+-  session    session   @relation(fields: [session_id], references: [session_id], onDelete: Cascade, onUpdate: NoAction)
+-  website    website   @relation(fields: [website_id], references: [website_id], onDelete: Cascade, onUpdate: NoAction)
++  session    session   @relation(fields: [session_id], references: [session_id], onDelete: Cascade)
++  website    website   @relation(fields: [website_id], references: [website_id], onDelete: Cascade)
+ 
+   @@index([created_at])
+   @@index([session_id])
+@@ -58,13 +65,13 @@ model session {
+   hostname     String?    @db.VarChar(100)
+   browser      String?    @db.VarChar(20)
+   os           String?    @db.VarChar(20)
++  device       String?    @db.VarChar(20)
+   screen       String?    @db.VarChar(11)
+   language     String?    @db.VarChar(35)
+   country      String?    @db.Char(2)
+-  device       String?    @db.VarChar(20)
+-  website      website    @relation(fields: [website_id], references: [website_id], onDelete: Cascade, onUpdate: NoAction)
+-  event        event[]
++  website      website    @relation(fields: [website_id], references: [website_id], onDelete: Cascade)
+   pageview     pageview[]
++  event        event[]
+ 
+   @@index([created_at])
+   @@index([website_id])
+@@ -73,15 +80,15 @@ model session {
+ model website {
+   website_id   Int        @id @default(autoincrement())
+   website_uuid String     @unique @db.Uuid
+-  name         String     @db.VarChar(100)
+-  created_at   DateTime?  @default(now()) @db.Timestamptz(6)
+   user_id      Int
++  name         String     @db.VarChar(100)
+   domain       String?    @db.VarChar(500)
+-  share_id     String?    @unique(map: "website_share_id_idx") @db.VarChar(64)
+-  account      account    @relation(fields: [user_id], references: [user_id], onDelete: NoAction, onUpdate: NoAction)
+-  event        event[]
++  share_id     String?    @unique @db.VarChar(64)
++  created_at   DateTime?  @default(now()) @db.Timestamptz(6)
++  account      account    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+   pageview     pageview[]
+   session      session[]
++  event        event[]
+ 
+   @@index([user_id])
+ }
+diff --git a/lib/db.js b/lib/db.js
+index cb9237bb13..1a5f8b2cab 100644
+--- a/lib/db.js
++++ b/lib/db.js
+@@ -182,7 +182,7 @@ export function getFilterQuery(table, column, filters = {}, params = []) {
+         }
+         break;
+ 
+-      case 'event_type':
++      case 'event_name':
+         if (table === 'event') {
+           arr.push(`and ${table}.${key}=$${params.length + 1}`);
+           params.push(decodeURIComponent(filter));
+@@ -212,17 +212,17 @@ export function getFilterQuery(table, column, filters = {}, params = []) {
+ }
+ 
+ export function parseFilters(table, column, filters = {}, params = [], sessionKey = 'session_id') {
+-  const { domain, url, event_url, referrer, os, browser, device, country, event_type } = filters;
++  const { domain, url, event_url, referrer, os, browser, device, country, event_name } = filters;
+ 
+   const pageviewFilters = { domain, url, referrer };
+   const sessionFilters = { os, browser, device, country };
+-  const eventFilters = { url: event_url, event_type };
++  const eventFilters = { url: event_url, event_name };
+ 
+   return {
+     pageviewFilters,
+     sessionFilters,
+     eventFilters,
+-    event: { event_type },
++    event: { event_name },
+     joinSession:
+       os || browser || device || country
+         ? `inner join session on ${table}.${sessionKey} = session.${sessionKey}`
+diff --git a/pages/api/collect.js b/pages/api/collect.js
+index 4ff533b986..9245101669 100644
+--- a/pages/api/collect.js
++++ b/pages/api/collect.js
+@@ -65,7 +65,7 @@ export default async (req, res) => {
+ 
+   const { type, payload } = getJsonBody(req);
+ 
+-  let { url, referrer, event_type, event_value } = payload;
++  let { url, referrer, event_name, event_data } = payload;
+ 
+   if (process.env.REMOVE_TRAILING_SLASH) {
+     url = removeTrailingSlash(url);
+@@ -74,7 +74,7 @@ export default async (req, res) => {
+   if (type === 'pageview') {
+     await savePageView(website_id, { session_id, session_uuid, url, referrer });
+   } else if (type === 'event') {
+-    await saveEvent(website_id, { session_id, session_uuid, url, event_type, event_value });
++    await saveEvent(website_id, { session_id, session_uuid, url, event_name, event_data });
+   } else {
+     return badRequest(res);
+   }
+diff --git a/pages/api/website/[id]/events.js b/pages/api/website/[id]/events.js
+index e4fc1e2aa5..ab4ddc7d03 100644
+--- a/pages/api/website/[id]/events.js
++++ b/pages/api/website/[id]/events.js
+@@ -14,7 +14,7 @@ export default async (req, res) => {
+       return unauthorized(res);
+     }
+ 
+-    const { id, start_at, end_at, unit, tz, url, event_type } = req.query;
++    const { id, start_at, end_at, unit, tz, url, event_name } = req.query;
+ 
+     if (!moment.tz.zone(tz) || !unitTypes.includes(unit)) {
+       return badRequest(res);
+@@ -26,7 +26,7 @@ export default async (req, res) => {
+ 
+     const events = await getEventMetrics(websiteId, startDate, endDate, tz, unit, {
+       url,
+-      event_type,
++      event_name,
+     });
+ 
+     return ok(res, events);
+diff --git a/pages/api/website/[id]/metrics.js b/pages/api/website/[id]/metrics.js
+index b12566fde3..78c8a0661d 100644
+--- a/pages/api/website/[id]/metrics.js
++++ b/pages/api/website/[id]/metrics.js
+@@ -22,7 +22,7 @@ function getTable(type) {
+ 
+ function getColumn(type) {
+   if (type === 'event') {
+-    return `concat(event_type, '\t', event_value)`;
++    return `event_name`;
+   }
+   return type;
+ }
+diff --git a/queries/analytics/event/getEventMetrics.js b/queries/analytics/event/getEventMetrics.js
+index 73f7e469e5..1dbe10f430 100644
+--- a/queries/analytics/event/getEventMetrics.js
++++ b/queries/analytics/event/getEventMetrics.js
+@@ -29,7 +29,7 @@ async function relationalQuery(
+   return rawQuery(
+     `
+     select
+-      event_value x,
++      event_name x,
+       ${getDateQuery('created_at', unit, timezone)} t,
+       count(*) y
+     from event
+diff --git a/queries/analytics/event/getEvents.js b/queries/analytics/event/getEvents.js
+index fc5c0aeb42..7969877a5b 100644
+--- a/queries/analytics/event/getEvents.js
++++ b/queries/analytics/event/getEvents.js
+@@ -40,7 +40,7 @@ function clickhouseQuery(websites, start_at) {
+       session_id,
+       created_at,
+       url,
+-      event_type
++      event_name
+     from event
+     where website_id in (${websites.join[',']}
+       and created_at >= ${getDateFormatClickhouse(start_at)})
+diff --git a/queries/analytics/event/saveEvent.js b/queries/analytics/event/saveEvent.js
+index 41c068c364..af1c78eda2 100644
+--- a/queries/analytics/event/saveEvent.js
++++ b/queries/analytics/event/saveEvent.js
+@@ -14,33 +14,36 @@ export async function saveEvent(...args) {
+   });
+ }
+ 
+-async function relationalQuery(website_id, { session_id, url, event_type, event_value }) {
++async function relationalQuery(website_id, { session_id, url, event_name, event_data }) {
++  const data = {
++    website_id,
++    session_id,
++    url: url?.substr(0, URL_LENGTH),
++    event_name: event_name?.substr(0, 50),
++  };
++
++  if (event_data) {
++    data.event_data = {
++      create: {
++        event_data: event_data,
++      },
++    };
++  }
++
+   return runQuery(
+     prisma.event.create({
+-      data: {
+-        website_id,
+-        session_id,
+-        url: url?.substr(0, URL_LENGTH),
+-        event_type: event_type?.substr(0, 50),
+-        event_value: event_value?.substr(0, 50),
+-      },
++      data,
+     }),
+   );
+ }
+ 
+-async function clickhouseQuery(website_id, { session_uuid, url, event_type, event_value }) {
+-  const params = [
+-    website_id,
+-    session_uuid,
+-    url?.substr(0, URL_LENGTH),
+-    event_type?.substr(0, 50),
+-    event_value?.substr(0, 50),
+-  ];
++async function clickhouseQuery(website_id, { session_uuid, url, event_name }) {
++  const params = [website_id, session_uuid, url?.substr(0, URL_LENGTH), event_name?.substr(0, 50)];
+ 
+   return rawQueryClickhouse(
+     `
+-    insert into umami_dev.event (created_at, website_id, session_uuid, url, event_type, event_value)
+-    values (${getDateFormatClickhouse(new Date())},  $1, $2, $3, $4, $5);`,
++    insert into umami_dev.event (created_at, website_id, session_uuid, url, event_name)
++    values (${getDateFormatClickhouse(new Date())},  $1, $2, $3, $4);`,
+     params,
+   );
+ }
+diff --git a/scripts/check-db.js b/scripts/check-db.js
+index 6b4b074908..190aeef6b3 100644
+--- a/scripts/check-db.js
++++ b/scripts/check-db.js
+@@ -59,12 +59,17 @@ async function checkMigrations() {
+   const output = await run('prisma', ['migrate', 'status']);
+ 
+   const missingMigrations = output.includes('have not yet been applied');
++  const missingInitialMigration = output.includes('01_init');
+   const notManaged = output.includes('The current database is not managed');
+ 
+   if (notManaged || missingMigrations) {
+     console.log('Running update...');
+ 
+-    console.log(execSync('prisma migrate resolve --applied "01_init"').toString());
++    if (missingInitialMigration) {
++      console.log(execSync('prisma migrate resolve --applied "01_init"').toString());
++    }
++
++    console.log(execSync('prisma migrate deploy').toString());
+   }
+ 
+   success('Database is up to date.');
+diff --git a/tracker/index.js b/tracker/index.js
+index f632963312..f0584288e7 100644
+--- a/tracker/index.js
++++ b/tracker/index.js
+@@ -97,25 +97,24 @@ import { removeTrailingSlash } from '../lib/url';
+     );
+   };
+ 
+-  const trackEvent = (event_value, event_type = 'custom', url = currentUrl, uuid = website) => {
++  const trackEvent = (event_name = 'custom', event_data, url = currentUrl, uuid = website) => {
+     collect(
+       'event',
+       assign(getPayload(), {
+         website: uuid,
+         url,
+-        event_type,
+-        event_value,
++        event_name,
++        event_data,
+       }),
+     );
+   };
+ 
+   /* Handle events */
+ 
+-  const sendEvent = (value, type) => {
++  const sendEvent = name => {
+     const payload = getPayload();
+ 
+-    payload.event_type = type;
+-    payload.event_value = value;
++    payload.event_name = name;
+ 
+     const data = JSON.stringify({
+       type: 'event',
+@@ -138,14 +137,15 @@ import { removeTrailingSlash } from '../lib/url';
+     (element.getAttribute('class') || '').split(' ').forEach(className => {
+       if (!eventClass.test(className)) return;
+ 
+-      const [, type, value] = className.split('--');
++      const [, type, name] = className.split('--');
++
+       const listener = listeners[className]
+         ? listeners[className]
+         : (listeners[className] = () => {
+             if (element.tagName === 'A') {
+-              sendEvent(value, type);
++              sendEvent(name);
+             } else {
+-              trackEvent(value, type);
++              trackEvent(name);
+             }
+           });
+ 

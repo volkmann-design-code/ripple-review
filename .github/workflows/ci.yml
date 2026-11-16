@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Non-TTY CI otherwise picks nx's static life cycle, which buffers a task's
+  # output to exit and emits it in one write.
+  NX_DEFAULT_OUTPUT_STYLE: stream
+
+jobs:
+  biome:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5.1.0
+      # Pinned biome binary only, no bun install. The version is read from
+      # package.json so it can't drift from the pin.
+      - id: biome
+        shell: bash
+        run: |
+          version=$(grep -m1 '"@biomejs/biome"' package.json | sed -E 's/.*"@biomejs\/biome": *"([^"]+)".*/\1/')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: biomejs/setup-biome@v2.7.1
+        with:
+          version: ${{ steps.biome.outputs.version }}
+      # Renovate PRs skip lefthook's biome-schema check (scripts/check-biome-schema.ts)
+      - name: biome.json $schema matches the pin
+        run: grep -qF '"https://biomejs.dev/schemas/${{ steps.biome.outputs.version }}/schema.json"' biome.json || { echo "::error file=biome.json::\$schema is not ${{ steps.biome.outputs.version }}; run \`bunx @biomejs/biome migrate --write\`"; exit 1; }
+      - run: biome ci .
+
+  test-unit:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # nx-set-shas looks up the last successful run on main
+      actions: read
+    steps:
+      - uses: actions/checkout@v5.1.0
+        with:
+          fetch-depth: 0
+          filter: tree:0
+      - uses: ./.github/actions/setup-js-env
+      - uses: nrwl/nx-set-shas@v4.4.0
+      - run: bunx nx affected -t test:unit
+
+  # Typecheck and build need real Node: the Angular CLI
+  # (`ng build`, and `ngc` for the web app's typecheck) refuses Bun's node shim.
+  # No `needs`: a red unit test must not hide a type error or a broken build.
+  typecheck-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v5.1.0
+        with:
+          fetch-depth: 0
+          filter: tree:0
+      - uses: ./.github/actions/setup-js-env
+        with:
+          node-bun-shim: "false"
+      - uses: nrwl/nx-set-shas@v4.4.0
+      - run: bunx nx affected -t typecheck build

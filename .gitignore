@@ -1,0 +1,11 @@
+node_modules
+dist
+.DS_Store
+.nx/cache
+.nx/workspace-data
+.claude/settings.local.json
+.claude/worktrees
+
+# Private recordings and the evaluation corpus: tested and run locally, never
+# committed (fixtures of private repositories hold their source)
+/local/

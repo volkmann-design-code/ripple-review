@@ -1,0 +1,4 @@
+{
+  "title": "fix(reg-exp-router): correct wildcard middleware coverage",
+  "url": "https://github.com/honojs/hono/pull/5556"
+}

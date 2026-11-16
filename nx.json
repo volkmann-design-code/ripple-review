@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "analytics": false,
+  "pluginsConfig": {
+    "@nx/js": {
+      "analyzeSourceFiles": true,
+      "analyzeLockfile": false
+    }
+  },
+  "targetDefaults": {
+    "typecheck": {
+      "cache": true,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit --rootDir . -p {projectRoot}/tsconfig.json"
+      },
+      "inputs": ["default", "^default", "{workspaceRoot}/tsconfig.json"]
+    },
+    "test:unit": {
+      "cache": true,
+      "inputs": [
+        "default",
+        "^default",
+        "{workspaceRoot}/tsconfig.json",
+        "{workspaceRoot}/vitest.shared.ts"
+      ]
+    },
+    "build": {
+      "cache": true
+    }
+  },
+  "affected": {
+    "defaultBase": "main"
+  }
+}

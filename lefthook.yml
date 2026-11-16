@@ -1,0 +1,10 @@
+pre-commit:
+  commands:
+    check:
+      glob: "**/*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc,graphql,css,yml,yaml}"
+      run: bunx @biomejs/biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --colors=off {staged_files}
+      stage_fixed: true
+    # Renovate bumps the Biome pin but not biome.json's $schema.
+    biome-schema:
+      glob: "{package.json,biome.json}"
+      run: bun run scripts/check-biome-schema.ts

@@ -1,0 +1,26 @@
+{
+  // Base for the Angular app. `outDir` stays in the app's
+  // tsconfig: a relative path resolves against the file that declares it.
+  "extends": "./tsconfig.json",
+  "compileOnSave": false,
+  "compilerOptions": {
+    "module": "ES2022",
+    "lib": ["ES2022", "dom"],
+    "types": [],
+    "noEmit": false,
+    // The libraries import with .ts extensions; emitting needs them rewritten.
+    "rewriteRelativeImportExtensions": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    "strictTemplates": true
+  }
+}
