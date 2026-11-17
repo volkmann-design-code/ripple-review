@@ -27,7 +27,10 @@ D1, D2.
       reads `collections/x.php` first. Paths and names only, no PHP parser.
 - [x] Corpus: the private Kirby PRs, "unlinked 100 %" → 70–75 %; no golden
       changed. `SAVED_REVIEWS.version` 6.
-- Not done: a public fixture (the starterkit's PRs mostly update the
-  vendored core); blocks (`snippets/blocks/x.php` for block type `x`),
+- [x] Public fixtures from getkirby/starterkit: `kirby-starterkit-14`
+      (blueprints, fields part, collection, controller, snippets,
+      templates), `-43` (section blueprints as parts), `-30` (snippets of
+      many templates; closed, not merged).
+- Not done: blocks (`snippets/blocks/x.php` for block type `x`),
   `template: x` in sections, plugin extensions registered under other
   paths.

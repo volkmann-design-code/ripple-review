@@ -1,0 +1,92 @@
+diff --git a/site/blueprints/pages/home.yml b/site/blueprints/pages/home.yml
+index 9b55b985..ba6cb575 100644
+--- a/site/blueprints/pages/home.yml
++++ b/site/blueprints/pages/home.yml
+@@ -24,13 +24,11 @@ sections:
+         type: text
+         width: 1/2
+ 
+-# The photography section extends a pages section defined in the `/site/blueprints/section/album.yml` blueprint
+-# More about reusing and extending sections: https://getkirby.com/docs/guide/blueprints/extending-blueprints#reusing-and-extending-sectionss
++  # The photography section extends a pages section defined in the `/site/blueprints/section/album.yml` blueprint
++  # More about reusing and extending sections: https://getkirby.com/docs/guide/blueprints/extending-blueprints#reusing-and-extending-sectionss
+   photography:
+-    headline: Photography
++    label: Photography
+     extends: sections/albums
+     status: listed
+     size: small
+     help: All projects for the homepage are being pulled from the photography page.
+-
+-
+diff --git a/site/blueprints/pages/notes.yml b/site/blueprints/pages/notes.yml
+index 6977a674..9aa1821c 100644
+--- a/site/blueprints/pages/notes.yml
++++ b/site/blueprints/pages/notes.yml
+@@ -14,12 +14,12 @@ columns:
+     sections:
+       drafts:
+         extends: sections/notes
+-        headline: Drafts
++        label: Drafts
+         status: draft
+ 
+       unlisted:
+         extends: sections/notes
+-        headline: In Review
++        label: In Review
+         status: unlisted
+ 
+   - width: 2/3
+@@ -27,7 +27,7 @@ columns:
+     sections:
+       listed:
+         extends: sections/notes
+-        headline: Published
++        label: Published
+         status: listed
+         size: small
+         layout: cards
+diff --git a/site/blueprints/pages/photography.yml b/site/blueprints/pages/photography.yml
+index 6515e3c5..f53f0556 100644
+--- a/site/blueprints/pages/photography.yml
++++ b/site/blueprints/pages/photography.yml
+@@ -9,10 +9,10 @@ icon: 🖼
+ sections:
+   drafts:
+     extends: sections/albums
+-    headline: Drafts
++    label: Drafts
+     status: draft
+ 
+   listed:
+     extends: sections/albums
+-    headline: Published Albums
++    label: Published Albums
+     status: listed
+diff --git a/site/blueprints/sections/albums.yml b/site/blueprints/sections/albums.yml
+index 1869a230..6caed337 100644
+--- a/site/blueprints/sections/albums.yml
++++ b/site/blueprints/sections/albums.yml
+@@ -3,7 +3,7 @@
+ # Sections can have different layouts and display additional information or a preview image
+ # More about pages sections: https://getkirby.com/docs/reference/panel/sections/pages
+ type: pages
+-headline: Photography
++label: Photography
+ parent: kirby.page("photography")
+ size: small
+ info: "{{ page.images.count }} image(s)"
+diff --git a/site/blueprints/sections/notes.yml b/site/blueprints/sections/notes.yml
+index 6a5f8895..e6dd099c 100644
+--- a/site/blueprints/sections/notes.yml
++++ b/site/blueprints/sections/notes.yml
+@@ -3,7 +3,7 @@
+ # Sections can have different layouts and display additional information or a preview image
+ # More about pages sections: https://getkirby.com/docs/reference/panel/sections/pages
+ type: pages
+-headline: Notes
++label: Notes
+ parent: kirby.page("notes")
+ info: "{{ page.published }}"
+ template: note

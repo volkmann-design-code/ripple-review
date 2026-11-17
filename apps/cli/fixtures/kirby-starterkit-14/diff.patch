@@ -1,0 +1,160 @@
+diff --git a/site/blueprints/fields/cover.yml b/site/blueprints/fields/cover.yml
+new file mode 100644
+index 00000000..e4ae5a71
+--- /dev/null
++++ b/site/blueprints/fields/cover.yml
+@@ -0,0 +1,9 @@
++# Fields can be defined in there own field blueprints
++# and reused across multiple blueprints
++# This field is used in the album.yml and note.yml blueprints
++# See http://getkirby.test/docs/guide/blueprints/extending-blueprints#reusing-and-extending-single-fields
++type: files
++multiple: false
++query: page.images.template('image')
++uploads:
++  template: image
+\ No newline at end of file
+diff --git a/site/blueprints/files/image.yml b/site/blueprints/files/image.yml
+index df023a23..25149029 100644
+--- a/site/blueprints/files/image.yml
++++ b/site/blueprints/files/image.yml
+@@ -6,6 +6,10 @@ title: Image
+ # In addition to the fields defined in this example blueprint, you can also set what type of file is acceptable
+ # when this blueprint is used, which allows you to control what users can upload.
+ # More about file blueprints: https://getkirby.com/docs/reference/panel/blueprints/file
++
++accept: 
++  type: image
++
+ columns:
+   - width: 1/2
+     sections:
+diff --git a/site/blueprints/pages/album.yml b/site/blueprints/pages/album.yml
+index 9f188f17..8501692d 100644
+--- a/site/blueprints/pages/album.yml
++++ b/site/blueprints/pages/album.yml
+@@ -24,9 +24,9 @@ columns:
+     # List of all available field types:
+     # https://getkirby.com/docs/reference/panel/fields
+     fields:
+-      cover:
+-        type: files
+-        multiple: false
++      # If you need the same field in multiple locations, you can define them once and reuse whereever needed.
++      # Here we use a files field defined in `/site/blueprints/field/cover.yml`
++      cover: fields/cover
+       headline:
+         type: text
+         placeholder: "{{ page.title }}"
+diff --git a/site/blueprints/pages/note.yml b/site/blueprints/pages/note.yml
+index 8cf99b13..a771d777 100755
+--- a/site/blueprints/pages/note.yml
++++ b/site/blueprints/pages/note.yml
+@@ -38,6 +38,9 @@ columns:
+       meta:
+         type: fields
+         fields:
++          # If you need the same field in multiple locations, you can define them once and reuse whereever needed.
++          # Here we use a files field defined in `/site/blueprints/field/cover.yml`
++          cover: fields/cover
+           date:
+             type: date
+             time: true
+diff --git a/site/collections/notes.php b/site/collections/notes.php
+index 5d298a74..a40e79ff 100755
+--- a/site/collections/notes.php
++++ b/site/collections/notes.php
+@@ -1,5 +1,11 @@
+ <?php
+-
++/**
++ * Collections help with keeping your code DRY 
++ * if you need to reuse the same set up pages, files or users in multiple places across your site.
++ * 
++ * More about collections:
++ * http://getkirby.test/docs/guide/templates/collections
++ */
+ return function () {
+     return page('notes')
+         ->children()
+diff --git a/site/controllers/notes.php b/site/controllers/notes.php
+index 101573dc..20635689 100755
+--- a/site/controllers/notes.php
++++ b/site/controllers/notes.php
+@@ -12,6 +12,12 @@
+ return function ($page) {
+ 
+     $tag   = urldecode(param('tag'));
++    /**
++     * We use the collection helper to fetch the notes collection defined in `/site/collections/notes.php`
++     * 
++     * More about collections:
++     * http://getkirby.test/docs/guide/templates/collections
++     */
+     $notes = collection('notes');
+ 
+     if (empty($tag) === false) {
+diff --git a/site/snippets/header.php b/site/snippets/header.php
+index e5fa7e1f..762da8aa 100755
+--- a/site/snippets/header.php
++++ b/site/snippets/header.php
+@@ -60,7 +60,7 @@
+     */
+     ?>
+     <a class="logo" href="<?= $site->url() ?>">
+-      <?= $site->title() ?>
++      <?= $site->title()->html() ?>
+     </a>
+ 
+     <nav class="menu">
+diff --git a/site/templates/default.php b/site/templates/default.php
+index d942cc79..0eeef81f 100755
+--- a/site/templates/default.php
++++ b/site/templates/default.php
+@@ -21,7 +21,7 @@
+ <?php snippet('header') ?>
+ 
+ <article>
+-  <h1 class="h1"><?= $page->title() ?></h1>
++  <h1 class="h1"><?= $page->title()->html() ?></h1>
+   <div class="text">
+     <?= $page->text()->kt() ?>
+   </div>
+diff --git a/site/templates/home.php b/site/templates/home.php
+index 8af010fa..544e47ce 100755
+--- a/site/templates/home.php
++++ b/site/templates/home.php
+@@ -48,7 +48,7 @@
+           <?php endif ?>
+           <figcaption>
+             <span>
+-              <span class="example-name"><?= $album->title() ?></span>
++              <span class="example-name"><?= $album->title()->html() ?></span>
+             </span>
+           </figcaption>
+         </figure>
+diff --git a/site/templates/note.php b/site/templates/note.php
+index a8985ad7..eef90202 100755
+--- a/site/templates/note.php
++++ b/site/templates/note.php
+@@ -31,9 +31,9 @@
+ 
+ <article class="note">
+   <header class="note-header h1">
+-    <h1 class="note-title"><?= $page->title() ?></h1>
++    <h1 class="note-title"><?= $page->title()->html() ?></h1>
+     <?php if ($page->subheading()->isNotEmpty()): ?>
+-    <p class="note-subheading"><small><?= $page->subheading() ?></small></p>
++    <p class="note-subheading"><small><?= $page->subheading()->html() ?></small></p>
+     <?php endif ?>
+   </header>
+   <div class="note text">
+@@ -44,7 +44,7 @@
+     <ul class="note-tags">
+       <?php foreach ($tags as $tag): ?>
+       <li>
+-        <a href="<?= $page->parent()->url(['params' => ['tag' => $tag]]) ?>"><?= $tag ?></a>
++        <a href="<?= $page->parent()->url(['params' => ['tag' => $tag]]) ?>"><?= html($tag) ?></a>
+       </li>
+       <?php endforeach ?>
+     </ul>

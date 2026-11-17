@@ -13,6 +13,9 @@ Newest first. One entry per session: machine, what happened, what's next.
   70 %; stories 0 → 3, 5, 1; standalone 49/61/70 % → 31/36/40 %. Notes
   read like "mentions `tabs/…` from ….yml (Kirby)". No golden changed;
   `SAVED_REVIEWS.version` 6.
+- Public fixtures: starterkit PRs 14, 43 and 30 recorded as goldens
+  (their orders checked by hand), so CI covers the rule; the goldens
+  hash in `SAVED_REVIEWS` updated, the version stays 6.
 - **Next:** the user reviews #20–#24 in order.
 
 ## 2026-11-17: mac, phase 04

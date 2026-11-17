@@ -11,5 +11,5 @@
  */
 export const SAVED_REVIEWS = {
   version: 6,
-  goldens: "b6d1cdcc23cd432b",
+  goldens: "91e52cc730a6ffa0",
 } as const;
