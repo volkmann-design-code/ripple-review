@@ -16,6 +16,12 @@ Newest first. One entry per session: machine, what happened, what's next.
 - Public fixtures: starterkit PRs 14, 43 and 30 recorded as goldens
   (their orders checked by hand), so CI covers the rule; the goldens
   hash in `SAVED_REVIEWS` updated, the version stays 6.
+- From review: Kirby's references are file names throughout, so the rule
+  follows them all: `template(s):`/`create:` to page and file blueprints,
+  `fieldsets:` and block snippets to block blueprints, bare `extends:`,
+  templates named in PHP. starterkit-14's `files/image.yml` is no longer
+  standalone; private corpus measures unchanged. Version stays 6 (not
+  released yet), goldens hash updated.
 - **Next:** the user reviews #20–#24 in order.
 
 ## 2026-11-17: mac, phase 04

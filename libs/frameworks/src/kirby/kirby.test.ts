@@ -27,6 +27,30 @@ const files: Record<string, string> = {
   "plugins/shop/blueprints/tabs/shop-order-lines.yml": "label: Lines\n",
   "plugins/shop/blueprints/tabs/shop-payments.yml": "label: Payments\n",
   "docs/blueprints/pages/example.yml": "title: Example\n",
+  "site/blueprints/pages/blog.yml": [
+    "title: Blog",
+    "fields:",
+    "  intro:",
+    "    extends: basefield",
+    "  text:",
+    "    type: blocks",
+    "    fieldsets: [quote, heading]",
+    "sections:",
+    "  articles:",
+    "    type: pages",
+    "    template: article",
+    "  photos:",
+    "    type: files",
+    "    templates:",
+    "      - photo",
+    "      - missing",
+  ].join("\n"),
+  "site/blueprints/fields/basefield.yml": "type: text\n",
+  "site/blueprints/files/photo.yml": "title: Photo\n",
+  "site/blueprints/blocks/quote.yml": "name: Quote\n",
+  "site/snippets/blocks/quote.php": "<blockquote></blockquote>",
+  "site/controllers/blog.php":
+    "<?php return fn ($page) => ['articles' => $page->children()->template('article')];",
 };
 
 async function rule(paths: Record<string, string> = files) {
@@ -94,6 +118,26 @@ describe("Kirby", () => {
       path: "site/collections/articles.php",
       via: "uses the collection",
     });
+  });
+
+  it("follows names a blueprint gives: extends, templates, blocks", async () => {
+    const blog = await facts("site/blueprints/pages/blog.yml");
+    expect(blog?.parts).toEqual(["site/blueprints/fields/basefield.yml"]);
+    expect(blog?.dependsOn).toEqual([
+      { path: "site/blueprints/pages/article.yml", via: "uses the template" },
+      { path: "site/blueprints/files/photo.yml", via: "uses the template" },
+      { path: "site/blueprints/blocks/quote.yml", via: "uses the block" },
+    ]);
+  });
+
+  it("follows names PHP gives: a template, a block's snippet", async () => {
+    expect((await facts("site/controllers/blog.php"))?.dependsOn).toEqual([
+      { path: "site/blueprints/pages/blog.yml", via: "controller of" },
+      { path: "site/blueprints/pages/article.yml", via: "uses the template" },
+    ]);
+    expect((await facts("site/snippets/blocks/quote.php"))?.dependsOn).toEqual([
+      { path: "site/blueprints/blocks/quote.yml", via: "snippet of" },
+    ]);
   });
 
   it("calls blueprints schema, outside sites and plugins nothing", async () => {
