@@ -4,7 +4,7 @@ title: "Kirby"
 status: review
 depends_on: [01-port-and-graphile-migrate]
 branch: frameworks-05-kirby
-pr: null
+pr: 24
 updated: 2026-11-17
 ---
 

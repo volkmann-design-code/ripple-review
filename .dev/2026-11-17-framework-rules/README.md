@@ -43,7 +43,7 @@ link to nothing that queues them.
 - `04` in review (#23), stacked on 03: PostGraphile's inflected names (tables,
   views, functions, computed columns, `@name`) link SQL to the GraphQL
   documents and code using them.
-- `05` in review, stacked on 04: Kirby blueprints define their ids, parts by
+- `05` in review (#24), stacked on 04: Kirby blueprints define their ids, parts by
   `extends`; blueprint, model, controller, template in that order;
   snippets and collections.
 
