@@ -2,6 +2,21 @@
 
 Newest first. One entry per session: machine, what happened, what's next.
 
+## 2026-11-17: mac, phase 04
+
+- PostGraphile rule, stacked on #22: tables and views define their names
+  by both inflections, functions and computed columns their camelCase
+  field, `@name` smart comments the renamed names; `*_hidden` /
+  `*_private` schemas skipped. Respellings of 3+ words left to generic
+  matching (otherwise a note lists the same name twice).
+- Corpus measures byte-identical; the measures are too coarse to see it,
+  so outputs were compared with and without the rule on the 13 recordings
+  changing SQL: one PR gains 10 links (web queries and mutations to the
+  migration creating their tables), the rest unchanged. Both private
+  repositories use PostGraphile, one with the simplify inflector.
+- **Next:** the user reviews #20–#23; then phase 05
+  (Kirby).
+
 ## 2026-11-17: mac, phase 03
 
 - graphile-worker rule, stacked on #21: task files under a `tasks/` folder
@@ -13,8 +28,7 @@ Newest first. One entry per session: machine, what happened, what's next.
   `SAVED_REVIEWS.version` 4.
 - Found: another private repository queues through its own queue
   managers, no `tasks/` folder: nothing to infer from layout there.
-- **Next:** the user reviews #20, #21, #22; then phase 04
-  (PostGraphile).
+- **Next:** phase 04 (PostGraphile).
 
 ## 2026-11-17: mac, planned; phases 01–02
 
