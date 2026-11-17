@@ -16,4 +16,4 @@ D1, D2.
       package's `tasks/` define their basename (and its other spellings).
 - [ ] Mentions (SQL `enqueue_job` / `add_job`, `addJob`, crontab, JSON keys)
       link through the name machinery.
-- [ ] Corpus: baumschule PRs touching tasks.
+- [ ] Corpus: the private PRs touching tasks.

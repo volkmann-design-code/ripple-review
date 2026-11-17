@@ -27,7 +27,7 @@ in one lib, `libs/frameworks` (D3).
 
 Started from the corpus (mvp effort, phase 03): 8 of 28 PRs had no edge at
 all; graphile-migrate's committed includes were missed (PR #19, replaced by
-phase 01, D4), Kirby's three PRs have no links, baumschule's worker tasks
+phase 01, D4), Kirby's three PRs have no links, a private repository's worker tasks
 link to nothing that queues them.
 
 ## Today
