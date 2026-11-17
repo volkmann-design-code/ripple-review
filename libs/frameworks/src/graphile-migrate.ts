@@ -36,9 +36,9 @@ export class GraphileMigrate implements FrameworkRule {
       .map((p) => dirOf(p));
     const folders = new Set<string>();
     for (const p of ctx.paths) {
-      const m = IN_MIGRATIONS.exec(p);
-      if (m?.[1] && roots.some((r) => r === "" || m[1]!.startsWith(`${r}/`))) {
-        folders.add(m[1]);
+      const folder = IN_MIGRATIONS.exec(p)?.[1];
+      if (folder && roots.some((r) => r === "" || folder.startsWith(`${r}/`))) {
+        folders.add(folder);
       }
     }
     this.folders = [...folders].sort((a, b) => b.length - a.length);
