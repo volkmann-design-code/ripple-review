@@ -19,9 +19,13 @@ setup and no public format to keep stable; some false links accepted.
 
 ## D3: One lib, `libs/frameworks` (2026-11-17)
 
-One file per rule in one project, registered in `libs/engine/src/adapters.ts`.
-Depends on core (and `typescript` for Angular); runs in the browser.
-**Why:** rules are small; a project each is overhead.
+One folder per rule (`src/<id>/`: the rule, its tests, its helpers) in one
+project, registered in `libs/engine/src/adapters.ts`. Depends on core (and
+`typescript` for Angular); runs in the browser. **Why:** rules are small; a
+project each is overhead (package.json, tsconfig, Vitest config, tsconfig
+path and Biome group per rule). The folders came from the review of #20, as
+the lib grows with every rule. A rule becomes its own project only if it
+brings a heavy dependency of its own.
 
 ## D4: graphile-migrate replaces PR #19 (2026-11-17)
 

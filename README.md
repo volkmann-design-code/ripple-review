@@ -91,7 +91,8 @@ file's language.
 
 What a framework always does the same way (a migration inlines its
 fixtures, a task is queued by its file name, a template belongs to its
-component) goes in a rule: a file in `libs/frameworks/src/` implementing
+component) goes in a rule: a folder `libs/frameworks/src/<id>/` (the rule
+and its tests) implementing
 `FrameworkRule` (`libs/core/src/framework.ts`), listed in
 `frameworkRules()` (`libs/frameworks/src/index.ts`). It provides:
 

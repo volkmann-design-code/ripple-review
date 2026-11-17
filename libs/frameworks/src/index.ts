@@ -1,5 +1,5 @@
 import type { FrameworkRule } from "@ripple-review/core/framework";
-import { GraphileMigrate } from "./graphile-migrate.ts";
+import { GraphileMigrate } from "./graphile-migrate/graphile-migrate.ts";
 
 export { GraphileMigrate };
 

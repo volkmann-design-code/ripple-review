@@ -33,7 +33,8 @@ workspaces, Biome for lint and format, lefthook for git hooks.
   local GitHub token)
 - `libs/adapter-<lang>`: one per language (`LanguageAdapter` in
   `libs/core/src/model.ts`)
-- `libs/frameworks`: one rule per framework (`FrameworkRule` in
+- `libs/frameworks`: one rule per framework, a folder each (`src/<id>/`;
+  `FrameworkRule` in
   `libs/core/src/framework.ts`), conventions across languages
   (graphile-migrate includes, …); detected from paths, runs in a browser
 - `libs/report`: Markdown output
