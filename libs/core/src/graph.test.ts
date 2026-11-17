@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { FrameworkRule } from "./framework.ts";
 import { analyze } from "./graph.ts";
 import type { ChangedFile, ChangeSet, LanguageAdapter } from "./model.ts";
 import { dirOf, joinRepo } from "./paths.ts";
@@ -154,6 +155,58 @@ describe("analyze", () => {
     expect(
       await edges(change(files, ["schema.dump.toy", "app/call.ts"])),
     ).toEqual([]);
+  });
+
+  describe("with framework rules", () => {
+    /** A toy framework: `pages/x.yml` comes before `models/x.php`, which includes `parts/x.css`; tasks define their basename. */
+    const toyFramework = (present: boolean): FrameworkRule => ({
+      id: "toy-fw",
+      name: "Toy",
+      detect: () => Promise.resolve(present),
+      file: ({ path }) => {
+        const model = /^models\/(.+)\.php$/.exec(path);
+        if (model) {
+          return {
+            dependsOn: [{ path: `pages/${model[1]}.yml`, via: "model of" }],
+            parts: [`parts/${model[1]}.css`],
+          };
+        }
+        const task = /^tasks\/(.+)\.ts$/.exec(path);
+        return task ? { definitions: [task[1]!] } : undefined;
+      },
+      roleHint: (path) => (path.endsWith(".yml") ? "schema" : undefined),
+    });
+    const files = {
+      "pages/project.yml": "title: Project",
+      "models/project.php": "<?php class ProjectPage {}",
+      "parts/project.css": ".project {}",
+      "tasks/send-mail.ts": "export default () => {};",
+      "db/queue.sql": "select add_job('send-mail');",
+    };
+    const cs = () => change(files, Object.keys(files));
+
+    it("adds its parts, files read first and names, marked with its name", async () => {
+      const { edges, nodes } = await analyze(cs(), [], [toyFramework(true)]);
+      expect(
+        edges
+          .map(
+            (e) =>
+              `${e.kind} ${e.from} → ${e.to} [${e.via.join(",")}] ${e.framework}`,
+          )
+          .sort(),
+      ).toEqual([
+        "contains models/project.php → parts/project.css [project.css] Toy",
+        "framework pages/project.yml → models/project.php [model of] Toy",
+        "name tasks/send-mail.ts → db/queue.sql [send-mail] Toy",
+      ]);
+      expect(nodes.get("pages/project.yml")?.role).toBe("schema");
+    });
+
+    it("adds nothing when its framework isn't detected", async () => {
+      const { edges, nodes } = await analyze(cs(), [], [toyFramework(false)]);
+      expect(edges).toEqual([]);
+      expect(nodes.get("pages/project.yml")?.role).toBe("source");
+    });
   });
 
   it("assigns a role and adapter to every changed file", async () => {

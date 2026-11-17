@@ -116,7 +116,13 @@ export type Role =
   | "generated"
   | "lockfile";
 
-export type EdgeKind = "import" | "contains" | "name" | "via-generated";
+export type EdgeKind =
+  | "import"
+  | "contains"
+  | "name"
+  | "via-generated"
+  /** A framework's convention (a blueprint before its model), `via` says how. */
+  | "framework";
 
 /** `from` should be reviewed before `to`. */
 export interface Edge {
@@ -125,6 +131,8 @@ export interface Edge {
   kind: EdgeKind;
   /** Symbols or names that carry the dependency. */
   via: string[];
+  /** The framework rule whose convention made the link, if one did. */
+  framework?: string;
 }
 
 export interface FileNode {

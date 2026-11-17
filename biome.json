@@ -64,6 +64,7 @@
       "includes": [
         "libs/engine/**",
         "libs/forge-*/**",
+        "libs/frameworks/**",
         "apps/web/src/**",
         "!libs/engine/src/node/**",
         "!**/*.test.ts"
@@ -77,7 +78,7 @@
                 "patterns": [
                   {
                     "group": ["node:*", "bun", "bun:*"],
-                    "message": "libs/engine, the forges and the web app run in a browser (D22): no Node or Bun modules (the engine's Node code goes in libs/engine/src/node/)."
+                    "message": "libs/engine, the forges, the framework rules and the web app run in a browser (D22): no Node or Bun modules (the engine's Node code goes in libs/engine/src/node/)."
                   }
                 ]
               }

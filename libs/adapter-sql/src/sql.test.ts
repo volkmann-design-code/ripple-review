@@ -49,13 +49,12 @@ describe("SqlAdapter", () => {
     ).toEqual(["get_user_by_email"]);
   });
 
-  it("reads includes as contains relations", () => {
+  it("reads psql includes as contains relations, not graphile-migrate's", () => {
     const facts = adapter().parse(
       "migrations/current.sql",
       files["migrations/current.sql"]!,
     );
     expect(facts.imports).toEqual([
-      { specifier: "functions/get_user.sql", names: "*", relation: "contains" },
       { specifier: "../seeds/users.sql", names: "*", relation: "contains" },
     ]);
     expect(facts.definitions).toEqual(["last_seen"]);

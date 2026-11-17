@@ -109,6 +109,8 @@ export function classify(
   adapter: LanguageAdapter | undefined,
   facts: ModuleFacts | undefined,
   isGenerated: (path: string) => boolean,
+  /** A framework rule's hint, consulted after the adapter's. */
+  frameworkHint?: Role,
 ): Role {
   const path = file.path;
   const base = path.slice(path.lastIndexOf("/") + 1);
@@ -146,7 +148,7 @@ export function classify(
   if (CONFIG_FILE.test(path)) {
     return "config";
   }
-  const hint = adapter?.roleHint?.(path);
+  const hint = adapter?.roleHint?.(path) ?? frameworkHint;
   if (hint) {
     return hint;
   }

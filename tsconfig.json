@@ -23,6 +23,7 @@
       "@ripple-review/adapter-graphql": [
         "./libs/adapter-graphql/src/graphql.ts"
       ],
+      "@ripple-review/frameworks": ["./libs/frameworks/src/index.ts"],
       "@ripple-review/ai-anthropic": ["./libs/ai-anthropic/src/anthropic.ts"],
       "@ripple-review/forge-github": ["./libs/forge-github/src/github.ts"],
       "@ripple-review/engine/*": ["./libs/engine/src/*.ts"],

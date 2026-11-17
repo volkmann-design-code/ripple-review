@@ -1,5 +1,6 @@
 import { classify, generatedMatcher } from "./classify.ts";
 import { changedLines, contentBefore } from "./diff.ts";
+import type { FrameworkFacts, FrameworkRule } from "./framework.ts";
 import { generatorMatcher } from "./generators.ts";
 import type {
   ChangeSet,
@@ -52,12 +53,21 @@ function spelling(name: string): string | undefined {
     : undefined;
 }
 
-/** A name specific enough that a mention of it in another file is a real link. */
-function distinctive(name: string): boolean {
+/**
+ * A name specific enough that a mention of it in another file is a real link.
+ * A framework's names (a task's `send-mail`) are kebab-case more often than
+ * not, and known to be names: a hyphen counts like an underscore for them.
+ */
+function distinctive(name: string, byFramework = false): boolean {
   if (name.length < 6) {
     return false;
   }
-  return name.includes("_") || /[a-z][A-Z]/.test(name) || name.length >= 12;
+  return (
+    name.includes("_") ||
+    /[a-z][A-Z]/.test(name) ||
+    name.length >= 12 ||
+    (byFramework && name.includes("-"))
+  );
 }
 
 /**
@@ -66,11 +76,14 @@ function distinctive(name: string): boolean {
  *    that defines them, across unchanged files;
  *  - contains edges (includes);
  *  - name edges: a file's diff mentions (as an identifier, a kebab-case name or a string literal)
- *    a distinctive name another changed file defines - the language-agnostic glue (SQL function ↔ TS caller, etc.).
+ *    a distinctive name another changed file defines - the language-agnostic glue (SQL function ↔ TS caller, etc.);
+ *  - framework edges: conventions of the frameworks the repository uses
+ *    (`frameworks`), as parts, files read first and names.
  */
 export async function analyze(
   cs: ChangeSet,
   adapters: LanguageAdapter[],
+  frameworks: FrameworkRule[] = [],
   onStep: (s: AnalysisStep) => void = () => {},
 ): Promise<Analysis> {
   // Reads are asked for together wherever the order doesn't matter, so a
@@ -81,12 +94,17 @@ export async function analyze(
     generatedMatcher(cs.head),
     generatorMatcher(cs.head),
   ]);
-  await Promise.all(adapters.map((a) => a.init?.(ctx)));
+  const [, detected] = await Promise.all([
+    Promise.all(adapters.map((a) => a.init?.(ctx))),
+    Promise.all(frameworks.map((f) => f.detect(ctx))),
+  ]);
+  const rules = frameworks.filter((_, i) => detected[i]);
   const [byAttributes, byGenerator] = await matchers;
   const isGenerated = (p: string) => byAttributes(p) || byGenerator(p);
   const adapterFor = (path: string) => adapters.find((a) => a.supports(path));
 
   const nodes = new Map<string, FileNode>();
+  const frameworkFacts = new Map<string, RuleFacts[]>();
   const factsCache = new Map<string, Promise<ModuleFacts | undefined>>();
 
   const total = cs.files.length;
@@ -115,9 +133,27 @@ export async function analyze(
       }
     }
     factsCache.set(file.path, Promise.resolve(facts));
+    const byRule: RuleFacts[] = [];
+    for (const rule of rules) {
+      let f: FrameworkFacts | undefined;
+      try {
+        f = rule.file?.({ path: file.path, content, facts });
+      } catch {
+        f = undefined;
+      }
+      if (f) {
+        byRule.push({ rule: rule.name, facts: f });
+      }
+    }
+    if (byRule.length) {
+      frameworkFacts.set(file.path, byRule);
+    }
+    const ruleHint = rules
+      .map((r) => r.roleHint?.(file.path))
+      .find((h) => h !== undefined);
     nodes.set(file.path, {
       file,
-      role: classify(file, content, adapter, facts, isGenerated),
+      role: classify(file, content, adapter, facts, isGenerated, ruleHint),
       adapter: adapter?.id,
       facts,
     });
@@ -211,7 +247,13 @@ export async function analyze(
   };
 
   const edgeMap = new Map<string, Edge>();
-  const addEdge = (from: string, to: string, kind: EdgeKind, via: string) => {
+  const addEdge = (
+    from: string,
+    to: string,
+    kind: EdgeKind,
+    via: string,
+    framework?: string,
+  ) => {
     if (from === to || !nodes.has(from) || !nodes.has(to)) {
       return;
     }
@@ -222,7 +264,13 @@ export async function analyze(
         e.via.push(via);
       }
     } else {
-      edgeMap.set(key, { from, to, kind, via: [via] });
+      edgeMap.set(key, {
+        from,
+        to,
+        kind,
+        via: [via],
+        ...(framework ? { framework } : {}),
+      });
     }
   };
   const linked = new Set<string>();
@@ -292,6 +340,18 @@ export async function analyze(
       }
     }
   }
+  // ── Framework edges ──────────────────────────────────────────────────────
+  for (const [path, byRule] of frameworkFacts) {
+    for (const { rule, facts } of byRule) {
+      for (const part of facts.parts ?? []) {
+        addEdge(path, part, "contains", basename(part), rule);
+      }
+      for (const d of facts.dependsOn ?? []) {
+        addEdge(d.path, path, "framework", d.via, rule);
+      }
+    }
+  }
+
   for (const e of edgeMap.values()) {
     linked.add(`${e.from}\0${e.to}`);
     linked.add(`${e.to}\0${e.from}`);
@@ -302,16 +362,32 @@ export async function analyze(
   // Only hand-written files count as definers: generated files (schema dumps,
   // generated clients) restate every name and would link everything to everything.
   const definers = new Map<string, Set<string>>();
+  /** Names a framework rule defined, with the rule's name. */
+  const ruleOf = new Map<string, string>();
+  const defined = new Map<string, Set<string>>();
   for (const [path, node] of nodes) {
-    if (skip(node.role) || node.role === "generated" || !node.facts) {
+    if (skip(node.role) || node.role === "generated") {
       continue;
     }
-    for (const d of node.facts.definitions) {
-      if (!distinctive(d)) {
-        continue;
+    const own = new Set<string>();
+    for (const d of node.facts?.definitions ?? []) {
+      own.add(d);
+      if (distinctive(d)) {
+        definers.set(d, (definers.get(d) ?? new Set()).add(path));
       }
-      definers.set(d, (definers.get(d) ?? new Set()).add(path));
     }
+    for (const { rule, facts } of frameworkFacts.get(path) ?? []) {
+      for (const d of facts.definitions ?? []) {
+        own.add(d);
+        if (distinctive(d, true)) {
+          definers.set(d, (definers.get(d) ?? new Set()).add(path));
+          if (!ruleOf.has(d)) {
+            ruleOf.set(d, rule);
+          }
+        }
+      }
+    }
+    defined.set(path, own);
   }
   // Other spellings of a defined name, mapped to the name as defined.
   const respelled = new Map<string, Set<string>>();
@@ -358,7 +434,7 @@ export async function analyze(
   }
   const maxMentions = Math.max(6, Math.ceil(nodes.size * 0.3));
   for (const [path, tokens] of mentions) {
-    const ownDefs = new Set(nodes.get(path)!.facts?.definitions ?? []);
+    const ownDefs = defined.get(path) ?? new Set<string>();
     for (const t of tokens) {
       if (ownDefs.has(t) || (mentionCount.get(t) ?? 0) > maxMentions) {
         continue;
@@ -371,12 +447,17 @@ export async function analyze(
         if (linked.has(`${d}\0${path}`)) {
           continue;
         }
-        addEdge(d, path, "name", t);
+        addEdge(d, path, "name", t, ruleOf.get(t));
       }
     }
   }
 
   return { nodes, edges: [...edgeMap.values()] };
+}
+
+interface RuleFacts {
+  rule: string;
+  facts: FrameworkFacts;
 }
 
 function basename(p: string): string {

@@ -2,6 +2,23 @@
 
 Newest first. One entry per session: machine, what happened, what's next.
 
+## 2026-11-17: mac, static layer: graphile-migrate's committed includes
+
+- Asked what's next and how to improve the non-AI part. Corpus: 8 of 28
+  PRs with no edge at all. Causes: the SQL adapter missed graphile-migrate's
+  expanded `--! Included x.sql` in committed migrations (9 PRs have one);
+  PHP (three PRs) and Dart (one) have no adapter.
+- Fixed the includes. Corpus: unlinked 100 % → 1 %, 7 %, 17 % on the three
+  SQL PRs without an edge; standalone 29 % → 12 % and 13 % → 7 % on two
+  more. One private golden changed: the included files now read "included
+  by", and Louvain moved one page component into its neighbouring story.
+  `SAVED_REVIEWS.version` 2.
+- With the user, for later: framework rules (patterns a framework always
+  follows, like the Angular and graphile-migrate ones); the static parts of
+  what went to 04 (no name links from comments, import edges only when the
+  diff touches them, docs next to their story).
+- **Next:** the user's call between those and the PHP/Dart adapters.
+
 ## 2026-11-16: mac, after publishing
 
 - Phase 08 ticked on `main` directly (`[skip ci]`); Renovate configured
