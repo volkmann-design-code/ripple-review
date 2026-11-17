@@ -1,0 +1,229 @@
+diff --git a/content/3_about/about.txt b/content/3_about/about.txt
+index 5b6ac42b..5280eb90 100644
+--- a/content/3_about/about.txt
++++ b/content/3_about/about.txt
+@@ -6,7 +6,7 @@ Layout: [{"attrs":[],"columns":[{"blocks":[{"content":{"location":"kirby","image
+ 
+ ----
+ 
+-Address: Mægazine Inc. <br>Sesamestreet 1 <br>Gotham City <br>USA
++Address: Mægazine Inc.<br>Sesamestreet 1<br>Gotham City<br>USA
+ 
+ ----
+ 
+@@ -32,10 +32,6 @@ Social:
+ 
+ ----
+ 
+-Text: <p>Far far away, behind the word mountains, far from the countries Vokalia and Consonantia, there live the blind texts. Separated they live in Bookmarksgrove right at the coast of the Semantics, a large language ocean. A small river named Duden flows by their place and supplies it with the necessary regelialia. It is a paradisematic country, in which roasted parts of sentences fly into your mouth. Even the all-powerful Pointing has no control about the blind texts it is an almost unorthographic life One day however a small line of blind text by the name of Lorem Ipsum decided to leave for the far World of Grammar. The Big Oxmox advised her not to do so, because there were thousands of bad Commas, wild Question Marks and devious Semikoli, but the Little Blind Text didn’t listen. She packed her seven versalia, put her initial into the belt and made herself on the way. When she reached the first hills of the Italic Mountains, she had a last view back on the skyline of her hometown Bookmarksgrove, the headline of Alphabet Village and the subline of her own road, the Line Lane. Pityful a rethoric question ran over her cheek, then she continued her way. On her way she met a copy.</p>
+-
+-----
+-
+ Contact:
+ 
+ Kirby Magazine Inc.
+diff --git a/site/snippets/blocks/image.php b/site/snippets/blocks/image.php
+index 3530faf2..b16500a5 100644
+--- a/site/snippets/blocks/image.php
++++ b/site/snippets/blocks/image.php
+@@ -23,10 +23,11 @@
+ $lightbox = $link->isEmpty();
+ 
+ if ($block->location() == 'web') {
+-    $src = $block->src();
++    $src      = $block->src();
++    $srcValue = $src->esc();
+ } elseif ($image = $block->image()->toFile()) {
+     $alt = $alt ?? $image->alt();
+-    $src = $image->url();
++    $src = $srcValue = $image->url();
+ }
+ 
+ if ($ratio !== 'auto') {
+@@ -44,10 +45,10 @@
+ ]);
+ 
+ ?>
+-<?php if ($src): ?>
++<?php if ($srcValue): ?>
+ <figure>
+   <a <?= $attrs ?>>
+-    <img src="<?= $src ?>" alt="<?= $alt ?>">
++    <img src="<?= $srcValue ?>" alt="<?= $alt->esc() ?>">
+   </a>
+ 
+   <?php if ($caption->isNotEmpty()): ?>
+diff --git a/site/snippets/footer.php b/site/snippets/footer.php
+index 769e8363..71f24e2f 100644
+--- a/site/snippets/footer.php
++++ b/site/snippets/footer.php
+@@ -23,7 +23,7 @@
+         <h2>Pages</h2>
+         <ul>
+           <?php foreach ($site->children()->listed() as $example): ?>
+-          <li><a href="<?= $example->url() ?>"><?= $example->title()->html() ?></a></li>
++          <li><a href="<?= $example->url() ?>"><?= $example->title()->escape() ?></a></li>
+           <?php endforeach ?>
+         </ul>
+       </div>
+diff --git a/site/snippets/header.php b/site/snippets/header.php
+index 762da8aa..655b2c39 100644
+--- a/site/snippets/header.php
++++ b/site/snippets/header.php
+@@ -24,7 +24,7 @@
+     site and the title of the current page
+   */
+   ?>
+-  <title><?= $site->title() ?> | <?= $page->title() ?></title>
++  <title><?= $site->title()->escape() ?> | <?= $page->title()->escape() ?></title>
+ 
+   <?php
+   /*
+@@ -60,7 +60,7 @@
+     */
+     ?>
+     <a class="logo" href="<?= $site->url() ?>">
+-      <?= $site->title()->html() ?>
++      <?= $site->title()->escape() ?>
+     </a>
+ 
+     <nav class="menu">
+@@ -78,7 +78,7 @@
+       */
+       ?>
+       <?php foreach ($site->children()->listed() as $item): ?>
+-      <a <?php e($item->isOpen(), 'aria-current ') ?> href="<?= $item->url() ?>"><?= $item->title()->html() ?></a>
++      <a <?php e($item->isOpen(), 'aria-current ') ?> href="<?= $item->url() ?>"><?= $item->title()->escape() ?></a>
+       <?php endforeach ?>
+       <?php snippet('social') ?>
+     </nav>
+diff --git a/site/snippets/intro.php b/site/snippets/intro.php
+index 3409cdd1..e5a03ca1 100644
+--- a/site/snippets/intro.php
++++ b/site/snippets/intro.php
+@@ -13,8 +13,8 @@
+ */
+ ?>
+ <header class="h1">
+-  <h1><?= $page->headline()->or($page->title())->html() ?></h1>
++  <h1><?= $page->headline()->or($page->title())->escape() ?></h1>
+   <?php if ($page->subheadline()->isNotEmpty()): ?>
+-  <p class="color-grey"><?= $page->subheadline()->html() ?></p>
++  <p class="color-grey"><?= $page->subheadline()->escape() ?></p>
+   <?php endif ?>
+ </header>
+diff --git a/site/snippets/layouts.php b/site/snippets/layouts.php
+index 8c651744..a9662b32 100644
+--- a/site/snippets/layouts.php
++++ b/site/snippets/layouts.php
+@@ -13,7 +13,7 @@
+ <?php foreach ($field->toLayouts() as $layout): ?>
+ <section class="grid margin-xl" id="<?= $layout->id() ?>" style="--gutter: 1.5rem">
+   <?php foreach ($layout->columns() as $column): ?>
+-  <div class="column" style="--columns:<?= $column->span() ?>">
++  <div class="column" style="--columns:<?= esc($column->span(), 'css') ?>">
+     <div class="text">
+       <?= $column->blocks() ?>
+     </div>
+diff --git a/site/snippets/note.php b/site/snippets/note.php
+index ad801bd2..185246a9 100644
+--- a/site/snippets/note.php
++++ b/site/snippets/note.php
+@@ -18,8 +18,8 @@
+         <?php endif ?>
+       </figure>
+ 
+-      <h2 class="note-excerpt-title"><?= $note->title() ?></h2>
+-      <time class="note-excerpt-date" datetime="<?= $note->published('c') ?>"><?= $note->published() ?></time>
++      <h2 class="note-excerpt-title"><?= $note->title()->escape() ?></h2>
++      <time class="note-excerpt-date" datetime="<?= esc($note->published('c'), 'attr') ?>"><?= esc($note->published()) ?></time>
+     </header>
+     <?php if (($excerpt ?? true) !== false): ?>
+     <div class="note-excerpt-text">
+diff --git a/site/templates/default.php b/site/templates/default.php
+index 0eeef81f..956a6f35 100644
+--- a/site/templates/default.php
++++ b/site/templates/default.php
+@@ -21,9 +21,9 @@
+ <?php snippet('header') ?>
+ 
+ <article>
+-  <h1 class="h1"><?= $page->title()->html() ?></h1>
++  <h1 class="h1"><?= $page->title()->escape() ?></h1>
+   <div class="text">
+-    <?= $page->text()->kt() ?>
++    <?= $page->text()->escape()->kt() ?>
+   </div>
+ </article>
+ 
+diff --git a/site/templates/home.php b/site/templates/home.php
+index 544e47ce..6917f048 100644
+--- a/site/templates/home.php
++++ b/site/templates/home.php
+@@ -48,7 +48,7 @@
+           <?php endif ?>
+           <figcaption>
+             <span>
+-              <span class="example-name"><?= $album->title()->html() ?></span>
++              <span class="example-name"><?= $album->title()->escape() ?></span>
+             </span>
+           </figcaption>
+         </figure>
+diff --git a/site/templates/note.php b/site/templates/note.php
+index eef90202..abef97f3 100644
+--- a/site/templates/note.php
++++ b/site/templates/note.php
+@@ -31,9 +31,9 @@
+ 
+ <article class="note">
+   <header class="note-header h1">
+-    <h1 class="note-title"><?= $page->title()->html() ?></h1>
++    <h1 class="note-title"><?= $page->title()->escape() ?></h1>
+     <?php if ($page->subheading()->isNotEmpty()): ?>
+-    <p class="note-subheading"><small><?= $page->subheading()->html() ?></small></p>
++    <p class="note-subheading"><small><?= $page->subheading()->escape() ?></small></p>
+     <?php endif ?>
+   </header>
+   <div class="note text">
+@@ -44,13 +44,13 @@
+     <ul class="note-tags">
+       <?php foreach ($tags as $tag): ?>
+       <li>
+-        <a href="<?= $page->parent()->url(['params' => ['tag' => $tag]]) ?>"><?= html($tag) ?></a>
++        <a href="<?= $page->parent()->url(['params' => ['tag' => $tag]]) ?>"><?= esc($tag) ?></a>
+       </li>
+       <?php endforeach ?>
+     </ul>
+     <?php endif ?>
+ 
+-    <time class="note-date" datetime="<?= $page->date('c') ?>">Published on <?= $page->date() ?></time>
++    <time class="note-date" datetime="<?= esc($page->date('c'), 'attr') ?>">Published on <?= esc($page->date()) ?></time>
+   </footer>
+ 
+   <?php snippet('prevnext') ?>
+diff --git a/site/templates/notes.php b/site/templates/notes.php
+index 4d5b5536..9ffb6d34 100644
+--- a/site/templates/notes.php
++++ b/site/templates/notes.php
+@@ -26,7 +26,7 @@
+ <?php if (empty($tag) === false): ?>
+ <header class="h1">
+   <h1>
+-    <small>Tag:</small> <?= html($tag) ?>
++    <small>Tag:</small> <?= esc($tag) ?>
+     <a href="<?= $page->url() ?>">&times;</a>
+   </h1>
+ </header>
+diff --git a/site/templates/photography.php b/site/templates/photography.php
+index fb9364f7..07d453a6 100644
+--- a/site/templates/photography.php
++++ b/site/templates/photography.php
+@@ -30,7 +30,7 @@
+           <?= ($cover = $project->cover()) ? $cover->crop(400, 500) : null ?>
+         </span>
+         <figcaption class="img-caption">
+-          <?= $project->title()->html() ?>
++          <?= $project->title()->escape() ?>
+         </figcaption>
+       </figure>
+     </a>

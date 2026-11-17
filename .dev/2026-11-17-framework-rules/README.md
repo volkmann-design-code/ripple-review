@@ -43,6 +43,9 @@ link to nothing that queues them.
 - `04` in review (#23), stacked on 03: PostGraphile's inflected names (tables,
   views, functions, computed columns, `@name`) link SQL to the GraphQL
   documents and code using them.
+- `05` in review (#24), stacked on 04: Kirby blueprints define their ids, parts by
+  `extends`; blueprint, model, controller, template in that order;
+  snippets and collections.
 
 ## Phases
 
@@ -52,7 +55,7 @@ link to nothing that queues them.
 | 02 | [Angular moved out of the TypeScript adapter](phases/02-angular.md) | review |
 | 03 | [graphile-worker](phases/03-graphile-worker.md) | review |
 | 04 | [PostGraphile](phases/04-postgraphile.md) | review |
-| 05 | [Kirby](phases/05-kirby.md) | todo |
+| 05 | [Kirby](phases/05-kirby.md) | review |
 
 ## Every phase
 
