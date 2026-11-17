@@ -17,4 +17,4 @@ D1, D2.
 - [ ] `blueprints/pages/x.yml` before `models/x.php`, `controllers/x.php`,
       `templates/x.php` of the same site or plugin root; blueprints are schema.
 - [ ] `extends: tabs/y` as parts. Paths and names only, no PHP parser.
-- [ ] Corpus: kirby-business-tools-80, -135, -138.
+- [ ] Corpus: the three private Kirby PRs.
