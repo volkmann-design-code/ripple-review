@@ -4,7 +4,7 @@ title: "PostGraphile"
 status: review
 depends_on: [01-port-and-graphile-migrate]
 branch: frameworks-04-postgraphile
-pr: null
+pr: 23
 updated: 2026-11-17
 ---
 

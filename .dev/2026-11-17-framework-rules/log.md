@@ -14,7 +14,7 @@ Newest first. One entry per session: machine, what happened, what's next.
   changing SQL: one PR gains 10 links (web queries and mutations to the
   migration creating their tables), the rest unchanged. Both private
   repositories use PostGraphile, one with the simplify inflector.
-- **Next:** the user reviews #20–#22 and phase 04's PR; then phase 05
+- **Next:** the user reviews #20–#23; then phase 05
   (Kirby).
 
 ## 2026-11-17: mac, phase 03
