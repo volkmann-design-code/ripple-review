@@ -33,6 +33,9 @@ workspaces, Biome for lint and format, lefthook for git hooks.
   local GitHub token)
 - `libs/adapter-<lang>`: one per language (`LanguageAdapter` in
   `libs/core/src/model.ts`)
+- `libs/frameworks`: one rule per framework (`FrameworkRule` in
+  `libs/core/src/framework.ts`), conventions across languages
+  (graphile-migrate includes, …); detected from paths, runs in a browser
 - `libs/report`: Markdown output
 - `libs/ai-<provider>`: one per AI provider (`ReviewModel` in
   `libs/core/src/ai.ts`; D18); the AI layer is opt-in with `--ai` (D19)
@@ -47,8 +50,8 @@ the `.ts` extension.
   report depend on core, never the other way round (enforced by Biome's
   `noRestrictedImports` for `libs/core/**`). Anything language-specific
   belongs in an adapter.
-- `libs/core`, `libs/engine` (outside `src/node/`), the forges and
-  `apps/web` run in a browser (D22): no `node:` or Bun imports (Biome
+- `libs/core`, `libs/engine` (outside `src/node/`), the forges,
+  `libs/frameworks` and `apps/web` run in a browser (D22): no `node:` or Bun imports (Biome
   enforces it; tests may).
   Repository access goes through the async `Snapshot`; ask for reads
   together (`Promise.all`) where order doesn't matter, so API snapshots

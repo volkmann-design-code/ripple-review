@@ -82,6 +82,10 @@
       "name": "@ripple-review/forge-github",
       "version": "0.1.0",
     },
+    "libs/frameworks": {
+      "name": "@ripple-review/frameworks",
+      "version": "0.1.0",
+    },
     "libs/report": {
       "name": "@ripple-review/report",
       "version": "0.1.0",
@@ -465,6 +469,8 @@
     "@ripple-review/engine": ["@ripple-review/engine@workspace:libs/engine"],
 
     "@ripple-review/forge-github": ["@ripple-review/forge-github@workspace:libs/forge-github"],
+
+    "@ripple-review/frameworks": ["@ripple-review/frameworks@workspace:libs/frameworks"],
 
     "@ripple-review/report": ["@ripple-review/report@workspace:libs/report"],
 

@@ -11,11 +11,10 @@ const CREATE =
   /\bcreate\s+(?:or\s+replace\s+)?(?:temp(?:orary)?\s+|unlogged\s+|materialized\s+)?(function|procedure|table|view|type|sequence|domain|schema)\s+(?:if\s+not\s+exists\s+)?([\w."]+)/gi;
 const ADD_COLUMN = /\badd\s+column\s+(?:if\s+not\s+exists\s+)?([\w"]+)/gi;
 /**
- * graphile-migrate `--! include x.sql` (in `current.sql`) and its expanded
- * form `--! Included x.sql` … `--! EndIncluded x.sql` (in committed
- * migrations); psql `\i x.sql` / `\ir x.sql`.
+ * psql `\i x.sql` / `\ir x.sql`. graphile-migrate's `--! include` is the
+ * graphile-migrate framework rule's (`libs/frameworks`).
  */
-const INCLUDES = [/^--!\s*included?\s+(\S+)/gim, /^\\ir?\s+(\S+)/gm];
+const INCLUDES = [/^\\ir?\s+(\S+)/gm];
 
 /**
  * SQL: what a file creates (functions, tables, views, types, added columns)

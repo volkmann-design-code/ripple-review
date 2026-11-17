@@ -48,11 +48,14 @@ source (libs/forge-github | libs/sources: local git, fixture) ──► ChangeSe
                                         │
 adapters (libs/adapter-*) ─────► ModuleFacts per file: imports, re-exports,
                                    exports, definitions (names)
+framework rules (libs/frameworks) ► per file, for the frameworks the repository
+                                   uses: parts, files to read first, names
                                         │
 core (libs/core, language-agnostic)
   graph.ts      edges between changed files
                   import    – symbols followed through barrels to their defining file
-                  contains  – includes (e.g. SQL `--! include`)
+                  contains  – includes (psql `\i`, graphile-migrate `--! include`)
+                  framework – a framework's convention (a blueprint before its model)
                   name      – a diff mentions a distinctive name another changed
                               file defines (SQL fn ↔ TS caller, GraphQL type ↔ resolver)
   classify.ts   role per file: docs, schema, contract, source, wiring, config,
@@ -69,7 +72,7 @@ report (libs/report)  Markdown checklist (with GitHub file links) or JSON
 ### Adding a language
 
 Create `libs/adapter-<lang>` implementing `LanguageAdapter`
-(`libs/core/src/model.ts`), register it in `apps/cli/src/adapters.ts`, add
+(`libs/core/src/model.ts`), register it in `libs/engine/src/adapters.ts`, add
 its path to the root `tsconfig.json`, and run the shared contract suite
 (`adapterContract` in `libs/core/src/testing/adapter-contract.ts`) from its
 tests. An adapter imports from
@@ -83,6 +86,25 @@ tests. An adapter imports from
 Everything else (barrel following, name links, clustering, ordering) is shared.
 Name links work across languages even without an adapter for the mentioning
 file's language.
+
+### Adding a framework
+
+What a framework always does the same way (a migration inlines its
+fixtures, a task is queued by its file name, a template belongs to its
+component) goes in a rule: a file in `libs/frameworks/src/` implementing
+`FrameworkRule` (`libs/core/src/framework.ts`), listed in
+`frameworkRules()` (`libs/frameworks/src/index.ts`). It provides:
+
+- `detect(ctx)`: whether the repository uses the framework, from paths and
+  from files the analysis reads anyway (`package.json`; recorded fixtures
+  keep only the files read)
+- `file({ path, content, facts })`: for one changed file, the `parts` it is
+  made of, the files to read before it (`dependsOn`, with how they relate)
+  and the names others mention it by (`definitions`)
+- `roleHint(path)` (optional), consulted after the adapter's
+
+Rules infer from layout and names rather than reading a configuration in
+the reviewed repository, and run in the browser (no `node:` imports).
 
 ## Development
 

@@ -20,6 +20,7 @@ const basename = (p: string) => p.slice(p.lastIndexOf("/") + 1);
 const EDGE_WEIGHT: Record<EdgeKind, number> = {
   import: 1,
   contains: 1,
+  framework: 1,
   "via-generated": 0.75,
   name: 0.5,
 };
@@ -382,7 +383,13 @@ function annotate(groups: ReviewGroup[], edges: Edge[]): void {
   const items = groups.flatMap((g) => g.items);
   const position = new Map(items.map((it, i) => [it.path, i]));
   const earlier = (e: Edge) => position.get(e.from)! < position.get(e.to)!;
-  const kindOrder: EdgeKind[] = ["contains", "import", "via-generated", "name"];
+  const kindOrder: EdgeKind[] = [
+    "contains",
+    "import",
+    "framework",
+    "via-generated",
+    "name",
+  ];
 
   for (const it of items) {
     const incoming = edges
@@ -404,12 +411,16 @@ function annotate(groups: ReviewGroup[], edges: Edge[]): void {
         .slice(0, 3)
         .map((v) => `\`${v}\``);
       const from = basename(e.from);
+      const by = e.framework ? ` (${e.framework})` : "";
       if (e.kind === "contains") {
+        // "included by" says it already; the framework would only repeat it.
         it.notes.push(`included by ${from}`);
+      } else if (e.kind === "framework") {
+        it.notes.push(`${e.via[0]} ${from}${by}`);
       } else if (it.role === "wiring") {
         it.notes.push(`re-exports ${from}`);
       } else if (e.kind === "name") {
-        it.notes.push(`mentions ${names.join(", ")} from ${from}`);
+        it.notes.push(`mentions ${names.join(", ")} from ${from}${by}`);
       } else if (e.kind === "via-generated") {
         it.notes.push(
           `uses ${names.length ? `${names.join(", ")} ` : ""}generated from ${from}`,

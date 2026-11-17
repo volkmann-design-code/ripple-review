@@ -49,32 +49,15 @@ describe("SqlAdapter", () => {
     ).toEqual(["get_user_by_email"]);
   });
 
-  it("reads includes as contains relations", () => {
+  it("reads psql includes as contains relations, not graphile-migrate's", () => {
     const facts = adapter().parse(
       "migrations/current.sql",
       files["migrations/current.sql"]!,
     );
     expect(facts.imports).toEqual([
-      { specifier: "functions/get_user.sql", names: "*", relation: "contains" },
       { specifier: "../seeds/users.sql", names: "*", relation: "contains" },
     ]);
     expect(facts.definitions).toEqual(["last_seen"]);
-  });
-
-  it("reads graphile-migrate's expanded includes in committed migrations", () => {
-    const facts = adapter().parse(
-      "migrations/committed/000001.sql",
-      [
-        "--! Previous: sha1:abc",
-        "--! Included functions/get_user.sql",
-        "create or replace function app.get_user_by_email(email text)",
-        "returns app.users as $$ select 1 $$ language sql;",
-        "--! EndIncluded functions/get_user.sql",
-      ].join("\n"),
-    );
-    expect(facts.imports).toEqual([
-      { specifier: "functions/get_user.sql", names: "*", relation: "contains" },
-    ]);
   });
 
   it("resolves includes relative to the file, then by suffix", () => {
