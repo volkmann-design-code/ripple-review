@@ -10,8 +10,12 @@ import { dirOf, joinRepo } from "@ripple-review/core/paths";
 const CREATE =
   /\bcreate\s+(?:or\s+replace\s+)?(?:temp(?:orary)?\s+|unlogged\s+|materialized\s+)?(function|procedure|table|view|type|sequence|domain|schema)\s+(?:if\s+not\s+exists\s+)?([\w."]+)/gi;
 const ADD_COLUMN = /\badd\s+column\s+(?:if\s+not\s+exists\s+)?([\w"]+)/gi;
-/** graphile-migrate `--! include x.sql`, psql `\i x.sql` / `\ir x.sql`. */
-const INCLUDES = [/^--!\s*include\s+(\S+)/gm, /^\\ir?\s+(\S+)/gm];
+/**
+ * graphile-migrate `--! include x.sql` (in `current.sql`) and its expanded
+ * form `--! Included x.sql` … `--! EndIncluded x.sql` (in committed
+ * migrations); psql `\i x.sql` / `\ir x.sql`.
+ */
+const INCLUDES = [/^--!\s*included?\s+(\S+)/gim, /^\\ir?\s+(\S+)/gm];
 
 /**
  * SQL: what a file creates (functions, tables, views, types, added columns)
