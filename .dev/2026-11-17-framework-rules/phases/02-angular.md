@@ -4,7 +4,7 @@ title: "Angular moved out of the TypeScript adapter"
 status: review
 depends_on: [01-port-and-graphile-migrate]
 branch: frameworks-02-angular
-pr: null
+pr: 21
 updated: 2026-11-17
 ---
 
