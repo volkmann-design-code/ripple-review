@@ -225,14 +225,6 @@ export class TypeScriptAdapter implements LanguageAdapter {
     if (content.includes("import(") || content.includes("require(")) {
       collectDynamic(sf, imports);
     }
-    if (content.includes("@Component") || content.includes("@Directive")) {
-      for (const c of angularDeclarations(sf)) {
-        imports.push(...c.parts);
-        for (const n of c.names) {
-          keys.add(n);
-        }
-      }
-    }
 
     return {
       imports,
@@ -383,121 +375,6 @@ function stringKeys(stmt: ts.Statement): string[] {
     );
   }
   return [];
-}
-
-const SIGNAL_INPUTS = new Set(["input", "output", "model"]);
-
-/** The name a class member is bound by in templates, if it is an input or output. */
-function bindingName(member: ts.ClassElement): string | undefined {
-  if (
-    !(
-      ts.isPropertyDeclaration(member) || ts.isSetAccessorDeclaration(member)
-    ) ||
-    !ts.isIdentifier(member.name)
-  ) {
-    return undefined;
-  }
-  for (const d of ts.getDecorators(member) ?? []) {
-    const e = d.expression;
-    if (
-      ts.isCallExpression(e) &&
-      ts.isIdentifier(e.expression) &&
-      (e.expression.text === "Input" || e.expression.text === "Output")
-    ) {
-      // @Input("alias") binds by the alias.
-      const [alias] = e.arguments;
-      return alias && ts.isStringLiteralLike(alias)
-        ? alias.text
-        : member.name.text;
-    }
-  }
-  // Signal inputs and outputs: input(), input.required(), output(), model().
-  const init = ts.isPropertyDeclaration(member)
-    ? member.initializer
-    : undefined;
-  if (init && ts.isCallExpression(init)) {
-    const callee = init.expression;
-    const fn = ts.isPropertyAccessExpression(callee)
-      ? callee.expression
-      : callee;
-    if (ts.isIdentifier(fn) && SIGNAL_INPUTS.has(fn.text)) {
-      return member.name.text;
-    }
-  }
-  return undefined;
-}
-
-/** Selectors a template uses the component by: `app-x`, `[appX]`, `app-x, [x]`. */
-function selectorNames(selector: string): string[] {
-  return selector
-    .split(",")
-    .map((s) => s.trim().replace(/^\[|\]$/g, ""))
-    .filter((s) => /^[A-Za-z][\w-]*$/.test(s));
-}
-
-/**
- * Angular components and directives (`@Component`, `@Directive`):
- *  - the template and styles (`templateUrl`, `styleUrl(s)`) are parts of the
- *    component, read with it like an SQL include;
- *  - the selector, inputs and outputs are names templates use it by, so a
- *    template that binds `[showButton]` or `(clicked)` links to it.
- */
-function angularDeclarations(
-  sf: ts.SourceFile,
-): { parts: ImportFact[]; names: string[] }[] {
-  const FILE_KEYS = new Set(["templateUrl", "styleUrl", "styleUrls"]);
-  const out: { parts: ImportFact[]; names: string[] }[] = [];
-  for (const stmt of sf.statements) {
-    if (!ts.isClassDeclaration(stmt)) {
-      continue;
-    }
-    for (const d of ts.getDecorators(stmt) ?? []) {
-      const call = d.expression;
-      if (
-        !ts.isCallExpression(call) ||
-        !ts.isIdentifier(call.expression) ||
-        (call.expression.text !== "Component" &&
-          call.expression.text !== "Directive")
-      ) {
-        continue;
-      }
-      const parts: ImportFact[] = [];
-      const names: string[] = [];
-      const [config] = call.arguments;
-      for (const prop of config && ts.isObjectLiteralExpression(config)
-        ? config.properties
-        : []) {
-        if (!ts.isPropertyAssignment(prop) || !ts.isIdentifier(prop.name)) {
-          continue;
-        }
-        const key = prop.name.text;
-        if (key === "selector" && ts.isStringLiteralLike(prop.initializer)) {
-          names.push(...selectorNames(prop.initializer.text));
-        }
-        if (!FILE_KEYS.has(key)) {
-          continue;
-        }
-        const values = ts.isArrayLiteralExpression(prop.initializer)
-          ? [...prop.initializer.elements]
-          : [prop.initializer];
-        for (const v of values) {
-          if (ts.isStringLiteralLike(v)) {
-            // Angular resolves these relative to the component, with or without "./".
-            const specifier = v.text.startsWith(".") ? v.text : `./${v.text}`;
-            parts.push({ specifier, names: "*", relation: "contains" });
-          }
-        }
-      }
-      for (const m of stmt.members) {
-        const n = bindingName(m);
-        if (n) {
-          names.push(n);
-        }
-      }
-      out.push({ parts, names });
-    }
-  }
-  return out;
 }
 
 function collectDynamic(sf: ts.SourceFile, imports: ImportFact[]): void {

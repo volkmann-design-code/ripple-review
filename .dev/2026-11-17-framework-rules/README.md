@@ -34,14 +34,17 @@ link to nothing that queues them.
 
 - `01` in review: `FrameworkRule` in core, `libs/frameworks` with the
   graphile-migrate rule (includes, also the committed `--! Included`
-  form); output identical to #19's, which it replaces.
+  form); output identical to #19's, which it replaces. A folder per rule
+  (D3, from its review).
+- `02` in review, stacked on 01: Angular moved into its rule; same orders,
+  notes say "(Angular)".
 
 ## Phases
 
 | #  | Phase | Status |
 |----|-------|--------|
 | 01 | [Port, `libs/frameworks`, graphile-migrate](phases/01-port-and-graphile-migrate.md) | review |
-| 02 | [Angular moved out of the TypeScript adapter](phases/02-angular.md) | todo |
+| 02 | [Angular moved out of the TypeScript adapter](phases/02-angular.md) | review |
 | 03 | [graphile-worker](phases/03-graphile-worker.md) | todo |
 | 04 | [PostGraphile](phases/04-postgraphile.md) | todo |
 | 05 | [Kirby](phases/05-kirby.md) | todo |
