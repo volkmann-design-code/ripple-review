@@ -4,7 +4,7 @@ title: "graphile-worker"
 status: review
 depends_on: [01-port-and-graphile-migrate]
 branch: frameworks-03-graphile-worker
-pr: null
+pr: 22
 updated: 2026-11-17
 ---
 

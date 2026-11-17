@@ -38,7 +38,7 @@ link to nothing that queues them.
   (D3, from its review).
 - `02` in review, stacked on 01: Angular moved into its rule; same orders,
   notes say "(Angular)".
-- `03` in review, stacked on 02: graphile-worker task files are named by
+- `03` in review (#22), stacked on 02: graphile-worker task files are named by
   their basename, so what queues them links to them.
 
 ## Phases

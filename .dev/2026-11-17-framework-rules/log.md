@@ -13,7 +13,7 @@ Newest first. One entry per session: machine, what happened, what's next.
   `SAVED_REVIEWS.version` 4.
 - Found: another private repository queues through its own queue
   managers, no `tasks/` folder: nothing to infer from layout there.
-- **Next:** the user reviews #20, #21, phase 03's PR; then phase 04
+- **Next:** the user reviews #20, #21, #22; then phase 04
   (PostGraphile).
 
 ## 2026-11-17: mac, planned; phases 01–02
