@@ -40,6 +40,9 @@ link to nothing that queues them.
   notes say "(Angular)".
 - `03` in review (#22), stacked on 02: graphile-worker task files are named by
   their basename, so what queues them links to them.
+- `04` in review, stacked on 03: PostGraphile's inflected names (tables,
+  views, functions, computed columns, `@name`) link SQL to the GraphQL
+  documents and code using them.
 
 ## Phases
 
@@ -48,7 +51,7 @@ link to nothing that queues them.
 | 01 | [Port, `libs/frameworks`, graphile-migrate](phases/01-port-and-graphile-migrate.md) | review |
 | 02 | [Angular moved out of the TypeScript adapter](phases/02-angular.md) | review |
 | 03 | [graphile-worker](phases/03-graphile-worker.md) | review |
-| 04 | [PostGraphile](phases/04-postgraphile.md) | todo |
+| 04 | [PostGraphile](phases/04-postgraphile.md) | review |
 | 05 | [Kirby](phases/05-kirby.md) | todo |
 
 ## Every phase
