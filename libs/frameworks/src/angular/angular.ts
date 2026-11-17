@@ -6,13 +6,8 @@ import type {
 import type { AdapterContext } from "@ripple-review/core/model";
 import { dirOf, joinRepo } from "@ripple-review/core/paths";
 import ts from "typescript";
+import { packagesUsing } from "../manifests.ts";
 
-const PACKAGE_JSON = /(^|\/)package\.json$/;
-const DEPENDENCY_FIELDS = [
-  "dependencies",
-  "devDependencies",
-  "peerDependencies",
-] as const;
 /** Component options naming files the component is made of. */
 const FILE_KEYS = new Set(["templateUrl", "styleUrl", "styleUrls"]);
 const SIGNAL_INPUTS = new Set(["input", "output", "model"]);
@@ -34,11 +29,7 @@ export class Angular implements FrameworkRule {
 
   async detect(ctx: AdapterContext): Promise<boolean> {
     this.paths = ctx.paths;
-    const manifests = [...ctx.paths].filter(
-      (p) => PACKAGE_JSON.test(p) && !p.includes("node_modules/"),
-    );
-    const texts = await Promise.all(manifests.map((p) => ctx.head.read(p)));
-    return texts.some((t) => t !== undefined && dependsOnAngular(t));
+    return (await packagesUsing(ctx, "@angular/core")).length > 0;
   }
 
   file(f: FrameworkFile): FrameworkFacts | undefined {
@@ -68,15 +59,6 @@ export class Angular implements FrameworkRule {
     return parts.length || definitions.length
       ? { parts, definitions }
       : undefined;
-  }
-}
-
-function dependsOnAngular(text: string): boolean {
-  try {
-    const pkg = JSON.parse(text);
-    return DEPENDENCY_FIELDS.some((k) => pkg?.[k]?.["@angular/core"]);
-  } catch {
-    return false;
   }
 }
 
