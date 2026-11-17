@@ -38,6 +38,8 @@ link to nothing that queues them.
   (D3, from its review).
 - `02` in review, stacked on 01: Angular moved into its rule; same orders,
   notes say "(Angular)".
+- `03` in review (#22), stacked on 02: graphile-worker task files are named by
+  their basename, so what queues them links to them.
 
 ## Phases
 
@@ -45,7 +47,7 @@ link to nothing that queues them.
 |----|-------|--------|
 | 01 | [Port, `libs/frameworks`, graphile-migrate](phases/01-port-and-graphile-migrate.md) | review |
 | 02 | [Angular moved out of the TypeScript adapter](phases/02-angular.md) | review |
-| 03 | [graphile-worker](phases/03-graphile-worker.md) | todo |
+| 03 | [graphile-worker](phases/03-graphile-worker.md) | review |
 | 04 | [PostGraphile](phases/04-postgraphile.md) | todo |
 | 05 | [Kirby](phases/05-kirby.md) | todo |
 

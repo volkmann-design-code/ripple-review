@@ -98,7 +98,8 @@ and its tests) implementing
 
 - `detect(ctx)`: whether the repository uses the framework, from paths and
   from files the analysis reads anyway (`package.json`; recorded fixtures
-  keep only the files read)
+  keep only the files read; `packagesUsing` in `src/manifests.ts` finds
+  the packages depending on something)
 - `file({ path, content, facts })`: for one changed file, the `parts` it is
   made of, the files to read before it (`dependsOn`, with how they relate)
   and the names others mention it by (`definitions`)
