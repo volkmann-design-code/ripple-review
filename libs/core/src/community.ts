@@ -106,3 +106,66 @@ export function louvain(
   });
   return result;
 }
+
+/**
+ * A community that is not one in the weak sense (Radicchi et al.: the ties
+ * among its files, counted from both ends, do not outweigh its ties outside
+ * it) joins the community it is most strongly tied to; smallest first,
+ * until none is left. Louvain leaves such communities behind: on a star (a migration and
+ * the functions it includes) it splits off any two leaves that also link to
+ * each other, though each is tied more to the hub. A single file with any
+ * edge is the simplest case.
+ */
+export function mergeWeak(
+  community: Map<string, number>,
+  edges: WeightedEdge[],
+): void {
+  for (;;) {
+    const members = new Map<number, string[]>();
+    for (const [node, c] of [...community].sort((a, b) =>
+      a[0].localeCompare(b[0]),
+    )) {
+      members.set(c, [...(members.get(c) ?? []), node]);
+    }
+    const inner = new Map<number, number>();
+    const ties = new Map<number, Map<number, number>>();
+    for (const e of edges) {
+      const ca = community.get(e.a);
+      const cb = community.get(e.b);
+      if (ca === undefined || cb === undefined) {
+        continue;
+      }
+      if (ca === cb) {
+        inner.set(ca, (inner.get(ca) ?? 0) + e.w);
+        continue;
+      }
+      for (const [from, to] of [
+        [ca, cb],
+        [cb, ca],
+      ] as const) {
+        const t = ties.get(from) ?? new Map<number, number>();
+        t.set(to, (t.get(to) ?? 0) + e.w);
+        ties.set(from, t);
+      }
+    }
+    const weak = [...members]
+      .filter(([c]) => {
+        const outside = [...(ties.get(c)?.values() ?? [])].reduce(
+          (s, w) => s + w,
+          0,
+        );
+        return outside > 0 && 2 * (inner.get(c) ?? 0) <= outside;
+      })
+      .sort(
+        (a, b) => a[1].length - b[1].length || a[1][0]!.localeCompare(b[1][0]!),
+      )[0];
+    if (!weak) {
+      return;
+    }
+    const [c, nodes] = weak;
+    const best = [...ties.get(c)!].sort((a, b) => b[1] - a[1])[0]![0];
+    for (const n of nodes) {
+      community.set(n, best);
+    }
+  }
+}

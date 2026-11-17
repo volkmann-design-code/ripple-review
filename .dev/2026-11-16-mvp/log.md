@@ -2,6 +2,30 @@
 
 Newest first. One entry per session: machine, what happened, what's next.
 
+## 2026-11-17: mac, static layer: weak communities merge back
+
+- A new corpus PR (a migration including seven functions) split two of
+  the included functions into a story of their own: they name each other,
+  and Louvain splits such a pair off a star although each is tied twice as
+  much to the hub.
+- `mergeSingletons` became `mergeWeak` (`libs/core/src/community.ts`): a
+  community whose internal ties, counted from both ends, don't outweigh
+  its ties outside (Radicchi's weak community) joins its strongest
+  neighbour. Corpus: three PRs change, each with fewer stories, all read
+  better. Goldens: `hono-5556`, `kirby-starterkit-14`, `-30` (included
+  snippets and blueprints now sit with what includes them); one private
+  golden got worse: a 3-file story leaning on a core type everyone imports
+  merged into that type's story.
+- Hence hub damping (`order.ts`): an import, name or via-generated edge
+  out of a file with n > 3 dependents counts 3/n; containment and
+  framework edges keep their weight (a migration's includes say where a
+  file belongs). Tried 1/log2 n and 1/sqrt(n/2) too: same fix, more
+  churn. The private golden is back to its two stories; corpus: 8 PRs
+  reorder, the moves put a file with its real user rather than with the
+  shared type (one story more on one PR); two private goldens change the
+  same way. `SAVED_REVIEWS.version` 7.
+- **Next:** the user's review of the moved orders.
+
 ## 2026-11-17: mac, static layer: graphile-migrate's committed includes
 
 - Asked what's next and how to improve the non-AI part. Corpus: 8 of 28
