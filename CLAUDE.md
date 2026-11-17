@@ -36,7 +36,8 @@ workspaces, Biome for lint and format, lefthook for git hooks.
 - `libs/frameworks`: one rule per framework, a folder each (`src/<id>/`;
   `FrameworkRule` in `libs/core/src/framework.ts`), conventions across
   languages (Angular templates and bindings, graphile-migrate includes,
-  graphile-worker task names, PostGraphile's GraphQL names, …);
+  graphile-worker task names, PostGraphile's GraphQL names, Kirby
+  blueprints, …);
   detected from paths and `package.json`, runs in a browser
 - `libs/report`: Markdown output
 - `libs/ai-<provider>`: one per AI provider (`ReviewModel` in

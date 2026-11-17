@@ -2,6 +2,19 @@
 
 Newest first. One entry per session: machine, what happened, what's next.
 
+## 2026-11-17: mac, phase 05
+
+- Kirby rule, stacked on #23. The private Kirby repository is a set of
+  plugins that name their blueprints by id in PHP (`'tabs/x'`), with no
+  page models or templates of the classic kind; the official starterkit
+  shows the textbook layout (blueprint, model, controller, template of
+  one name; snippets; collections). The rule covers both.
+- Corpus: only the three Kirby PRs changed: unlinked 100 % → 75 %, 74 %,
+  70 %; stories 0 → 3, 5, 1; standalone 49/61/70 % → 31/36/40 %. Notes
+  read like "mentions `tabs/…` from ….yml (Kirby)". No golden changed;
+  `SAVED_REVIEWS.version` 6.
+- **Next:** the user reviews #20–#24 in order.
+
 ## 2026-11-17: mac, phase 04
 
 - PostGraphile rule, stacked on #22: tables and views define their names
