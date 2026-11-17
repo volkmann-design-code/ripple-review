@@ -154,64 +154,6 @@ describe("TypeScriptAdapter.parse", () => {
     ]);
   });
 
-  const component = [
-    'import { Component, Directive, Input, Output, input, output, model } from "@angular/core";',
-    "@Component({",
-    '  selector: "app-line-actions",',
-    '  templateUrl: "./list.component.html",',
-    "  styleUrls: ['./list.component.scss', 'shared.css'],",
-    "})",
-    "export class ListComponent {",
-    "  @Input() showTaxButton = false;",
-    '  @Input("rowLabel") label = "";',
-    "  @Output() taxRateClicked = new EventEmitter<void>();",
-    "  selectedRows = input.required<Row[]>();",
-    "  expandedChanged = output<boolean>();",
-    "  pageSize = model(20);",
-    "  plainField = 3;",
-    "  helper() {}",
-    "}",
-    '@Directive({ selector: "[appTooltip], app-tip" })',
-    "export class TooltipDirective { @Input() appTooltip = ''; }",
-    "@Injectable({ templateUrl: './not-a-component.html' })",
-    "export class NotAComponent { @Input() notBound = 1; }",
-  ].join("\n");
-
-  it("reads an Angular component's template and styles as its parts", () => {
-    const imports = adapter().parse(
-      "src/app/list.component.ts",
-      component,
-    ).imports;
-    expect(imports.filter((i) => i.relation === "contains")).toEqual([
-      { specifier: "./list.component.html", names: "*", relation: "contains" },
-      { specifier: "./list.component.scss", names: "*", relation: "contains" },
-      { specifier: "./shared.css", names: "*", relation: "contains" },
-    ]);
-  });
-
-  it("defines the selectors, inputs and outputs templates bind to", () => {
-    const { definitions } = adapter().parse(
-      "src/app/list.component.ts",
-      component,
-    );
-    expect(definitions).toEqual(
-      expect.arrayContaining([
-        "app-line-actions",
-        "showTaxButton",
-        "rowLabel",
-        "taxRateClicked",
-        "selectedRows",
-        "expandedChanged",
-        "pageSize",
-        "appTooltip",
-        "app-tip",
-      ]),
-    );
-    expect(definitions).not.toContain("label");
-    expect(definitions).not.toContain("plainField");
-    expect(definitions).not.toContain("notBound");
-  });
-
   it("parses TSX and JS", () => {
     const a = adapter();
     expect(

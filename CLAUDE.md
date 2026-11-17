@@ -34,9 +34,9 @@ workspaces, Biome for lint and format, lefthook for git hooks.
 - `libs/adapter-<lang>`: one per language (`LanguageAdapter` in
   `libs/core/src/model.ts`)
 - `libs/frameworks`: one rule per framework, a folder each (`src/<id>/`;
-  `FrameworkRule` in
-  `libs/core/src/framework.ts`), conventions across languages
-  (graphile-migrate includes, …); detected from paths, runs in a browser
+  `FrameworkRule` in `libs/core/src/framework.ts`), conventions across
+  languages (Angular templates and bindings, graphile-migrate includes, …);
+  detected from paths and `package.json`, runs in a browser
 - `libs/report`: Markdown output
 - `libs/ai-<provider>`: one per AI provider (`ReviewModel` in
   `libs/core/src/ai.ts`; D18); the AI layer is opt-in with `--ai` (D19)
