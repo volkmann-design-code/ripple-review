@@ -73,8 +73,8 @@ end it runs as a GitHub App on every PR (D4).
   locally in `local/`.
 
 - Framework rules (graphile-migrate, Angular, graphile-worker,
-  PostGraphile, Kirby) continue in their own effort,
-  [`2026-11-17-framework-rules`](../2026-11-17-framework-rules/README.md).
+  PostGraphile, Kirby) continued in their own effort, done:
+  [`2026-11-17-framework-rules`](../archive/2026-11-17-framework-rules/README.md).
 
 ## Phases
 

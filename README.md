@@ -87,6 +87,22 @@ Everything else (barrel following, name links, clustering, ordering) is shared.
 Name links work across languages even without an adapter for the mentioning
 file's language.
 
+### Frameworks
+
+Rules for the frameworks a repository uses, detected from its layout and
+`package.json`:
+
+- **graphile-migrate**: a migration is made of the fixtures it includes.
+- **graphile-worker**: a task file is named by its basename, so what queues
+  it links to it.
+- **PostGraphile**: SQL tables, views and functions define their GraphQL
+  names (both inflections, computed columns, `@name`).
+- **Angular**: a component's template and styles are its parts; selectors
+  and bindings link templates to components.
+- **Kirby**: a file's name is its key: blueprints by id and `extends`,
+  templates and blocks named in blueprints and PHP, a page's blueprint
+  before its model, controller and template, snippets and collections.
+
 ### Adding a framework
 
 What a framework always does the same way (a migration inlines its

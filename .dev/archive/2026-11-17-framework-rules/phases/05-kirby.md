@@ -1,7 +1,7 @@
 ---
 id: 05-kirby
 title: "Kirby"
-status: review
+status: done
 depends_on: [01-port-and-graphile-migrate]
 branch: frameworks-05-kirby
 pr: 24

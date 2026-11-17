@@ -1,7 +1,7 @@
 ---
 id: 04-postgraphile
 title: "PostGraphile"
-status: review
+status: done
 depends_on: [01-port-and-graphile-migrate]
 branch: frameworks-04-postgraphile
 pr: 23

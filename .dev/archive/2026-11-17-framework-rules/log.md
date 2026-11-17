@@ -2,6 +2,12 @@
 
 Newest first. One entry per session: machine, what happened, what's next.
 
+## 2026-11-17: mac, closed
+
+- #20–#24 squash-merged into main in order (each next PR retargeted to
+  main and main merged into it first, keeping its tree); branches
+  deleted. Effort done and archived; what's left open is in `README.md`.
+
 ## 2026-11-17: mac, phase 05
 
 - Kirby rule, stacked on #23. The private Kirby repository is a set of
