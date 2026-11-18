@@ -2,6 +2,25 @@
 
 Newest first. One entry per session: machine, what happened, what's next.
 
+## 2026-11-18: mac, static layer: a component with its template
+
+- The user, reviewing a private PR in the web app: Angular components'
+  `.ts` and `.html` not read one after the other. Inside a story files
+  were in dependency order with ties by path, so another file of the
+  story could land between a component and its template.
+- `orderWithParts` (`order.ts`): a file and the parts it alone contains
+  are ordered as one unit, the host first, then its parts in dependency
+  order, as the host lists them where that leaves a choice. The Angular
+  rule lists the template before the styles (ts, html, css). A part of
+  several hosts (a Kirby snippet) stays loose, after all of them. The AI
+  layer's moves carry a component's parts along and don't move a part
+  away from its host.
+- Public goldens unchanged; private ones: the template now follows its
+  component, and a migration's included functions follow the
+  migration's include order instead of the path order. Two private
+  goldens were stale before this (failing on `main`), not updated here.
+  `SAVED_REVIEWS.version` 9.
+
 ## 2026-11-17: mac, static layer: weak communities merge back
 
 - A new corpus PR (a migration including seven functions) split two of

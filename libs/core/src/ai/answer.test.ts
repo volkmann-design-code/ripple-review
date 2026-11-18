@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+import type { Edge } from "../model.ts";
 import { applyAnswer, parseAnswer } from "./answer.ts";
-import { edges, groups, paths } from "./test-fixtures.ts";
+import { edges, groups, item, paths } from "./test-fixtures.ts";
 
 describe("applyAnswer", () => {
   it("names groups, reorders the movable ones and keeps context and generated in place", () => {
@@ -78,6 +79,43 @@ describe("applyAnswer", () => {
     ]);
     expect(out[2]?.items[1]?.notes).toEqual(["placed here: part of c"]);
     expect(ignored).toHaveLength(4);
+  });
+
+  it("moves a component with its template and styles, never them alone", () => {
+    const withComponent = groups();
+    withComponent[1]?.items.push(
+      item("x.component.ts"),
+      item("x.component.html"),
+      item("x.component.css"),
+    );
+    const contains = (to: string): Edge => ({
+      from: "x.component.ts",
+      to,
+      kind: "contains",
+      via: [],
+    });
+    const { groups: out, ignored } = applyAnswer(
+      withComponent,
+      [...edges, contains("x.component.html"), contains("x.component.css")],
+      {
+        order: [],
+        groups: [],
+        moves: [
+          { path: "x.component.html", to: 3, reason: "alone" },
+          { path: "x.component.ts", to: 3, reason: "with c" },
+        ],
+        weakEdges: [],
+      },
+    );
+    expect(ignored).toEqual(["move of x.component.html to group 3"]);
+    expect(out[1]?.items.map((i) => i.path)).toEqual(["a.ts", "b.ts"]);
+    expect(out[3]?.items.map((i) => i.path)).toEqual([
+      "c.ts",
+      "x.component.ts",
+      "x.component.html",
+      "x.component.css",
+      "c.test.ts",
+    ]);
   });
 
   it("keeps only weak links the analysis found (either direction), and leaves the input untouched", () => {

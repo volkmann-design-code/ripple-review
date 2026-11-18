@@ -298,17 +298,17 @@ export function planReview(analysis: Analysis): {
       const byRole = (pred: (r: Role) => boolean) =>
         s.members.filter((m) => pred(role(m)));
       const ordered = [
-        ...topoOrder(
+        ...orderWithParts(
           byRole((r) => !isTest(r)),
           edges,
           fileCompare,
         ),
-        ...topoOrder(
+        ...orderWithParts(
           byRole((r) => r === "test-support"),
           edges,
           fileCompare,
         ),
-        ...topoOrder(
+        ...orderWithParts(
           byRole((r) => r === "test"),
           edges,
           fileCompare,
@@ -371,6 +371,84 @@ export function planReview(analysis: Analysis): {
 
   annotate(groups, edges);
   return { groups, edges };
+}
+
+/**
+ * Dependency order of `ids`, a file and the parts it contains read as one:
+ * an Angular component, then its template and styles; a migration, then
+ * the files it includes. The unit goes where its files' dependencies put it
+ * (a template binding another component puts that component first); inside
+ * it the host comes first, then its parts in dependency order, as the host
+ * lists them where that leaves a choice. A part of several hosts (a
+ * snippet every template includes) stays loose, read after all of them.
+ */
+export function orderWithParts(
+  ids: string[],
+  edges: Edge[],
+  compare: (a: string, b: string) => number,
+): string[] {
+  const inSet = new Set(ids);
+  const hosts = new Map<string, Set<string>>();
+  for (const e of edges) {
+    if (
+      e.kind === "contains" &&
+      e.from !== e.to &&
+      inSet.has(e.from) &&
+      inSet.has(e.to)
+    ) {
+      hosts.set(e.to, (hosts.get(e.to) ?? new Set()).add(e.from));
+    }
+  }
+  const hostOf = new Map<string, string>();
+  const listed = new Map<string, number>();
+  for (const [part, hs] of hosts) {
+    if (hs.size === 1) {
+      hostOf.set(part, [...hs][0]!);
+      listed.set(part, listed.size);
+    }
+  }
+  if (hostOf.size === 0) {
+    return topoOrder(ids, edges, compare);
+  }
+  // Nested parts (an include that includes) belong to the outermost host;
+  // a cycle of hosts stops at the file it started from.
+  const unitOf = (p: string) => {
+    const seen = new Set([p]);
+    let u = p;
+    for (let h = hostOf.get(u); h && !seen.has(h); h = hostOf.get(u)) {
+      seen.add(h);
+      u = h;
+    }
+    return u;
+  };
+  const members = new Map<string, string[]>();
+  for (const p of ids) {
+    const u = unitOf(p);
+    members.set(u, [...(members.get(u) ?? []), p]);
+  }
+  const units = [...members.keys()];
+  const unitEdges = edges.flatMap((e) =>
+    inSet.has(e.from) && inSet.has(e.to)
+      ? [{ from: unitOf(e.from), to: unitOf(e.to) }]
+      : [],
+  );
+  const byListing = (a: string, b: string) =>
+    (listed.get(a) ?? -1) - (listed.get(b) ?? -1) || compare(a, b);
+  return topoOrder(units, unitEdges, compare).flatMap((u) => {
+    const ms = members.get(u)!;
+    if (ms.length === 1) {
+      return ms;
+    }
+    // In a cycle of hosts, the unit's name may be a member of another unit.
+    return [
+      ...(ms.includes(u) ? [u] : []),
+      ...topoOrder(
+        ms.filter((m) => m !== u),
+        edges,
+        byListing,
+      ),
+    ];
+  });
 }
 
 /** Short reasons, from the edges into each item from earlier ones. */

@@ -15,7 +15,7 @@ const SIGNAL_INPUTS = new Set(["input", "output", "model"]);
 /**
  * Angular components and directives (`@Component`, `@Directive`):
  *  - the template and styles (`templateUrl`, `styleUrl(s)`) are parts of the
- *    component, read with it;
+ *    component, read right after it, the template first;
  *  - the selector, inputs and outputs are names templates use it by, so a
  *    template that binds `[showButton]` or `(clicked)` links to it.
  *
@@ -100,11 +100,17 @@ function declarations(
         const values = ts.isArrayLiteralExpression(prop.initializer)
           ? [...prop.initializer.elements]
           : [prop.initializer];
-        for (const v of values) {
-          if (ts.isStringLiteralLike(v)) {
-            // Angular resolves these relative to the component, with or without "./".
-            files.push(v.text.startsWith(".") ? v.text : `./${v.text}`);
-          }
+        const specs = values.flatMap((v) =>
+          // Angular resolves these relative to the component, with or without "./".
+          ts.isStringLiteralLike(v)
+            ? [v.text.startsWith(".") ? v.text : `./${v.text}`]
+            : [],
+        );
+        // Read as component, template, styles, whatever order the decorator has.
+        if (key === "templateUrl") {
+          files.unshift(...specs);
+        } else {
+          files.push(...specs);
         }
       }
       for (const m of stmt.members) {

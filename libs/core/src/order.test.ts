@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Analysis } from "./graph.ts";
 import type { Edge, EdgeKind, FileNode, Role } from "./model.ts";
-import { planReview } from "./order.ts";
+import { orderWithParts, planReview } from "./order.ts";
 
 function analysis(
   files: [string, Role][],
@@ -85,5 +85,80 @@ describe("planReview", () => {
       ),
     );
     expect(result).toEqual([["migration", ...fns].sort()]);
+  });
+});
+
+describe("orderWithParts", () => {
+  const edge = (from: string, to: string, kind: EdgeKind): Edge => ({
+    from,
+    to,
+    kind,
+    via: [],
+  });
+  const byPath = (a: string, b: string) => a.localeCompare(b);
+
+  it("reads a component's template and styles right after it", () => {
+    // detail.html binds the tracking component: tracking first, whole.
+    // Sorted by path alone, detail.ts would come between tracking.ts and its
+    // template.
+    const ts = "detail/tracking/tracking.component.ts";
+    const html = "detail/tracking/tracking.component.html";
+    const css = "detail/tracking/tracking.component.css";
+    const files = [
+      "detail/detail.component.html",
+      "detail/detail.component.ts",
+      "detail/tracking.query.ts",
+      css,
+      html,
+      ts,
+    ];
+    const edges = [
+      edge(
+        "detail/detail.component.ts",
+        "detail/detail.component.html",
+        "contains",
+      ),
+      edge(ts, html, "contains"),
+      edge(ts, css, "contains"),
+      edge(ts, "detail/detail.component.html", "framework"),
+      edge("detail/tracking.query.ts", ts, "import"),
+      edge("detail/tracking.query.ts", "detail/detail.component.ts", "import"),
+    ];
+    expect(orderWithParts(files, edges, byPath)).toEqual([
+      "detail/tracking.query.ts",
+      ts,
+      html,
+      css,
+      "detail/detail.component.ts",
+      "detail/detail.component.html",
+    ]);
+  });
+
+  it("places every file once when hosts contain each other", () => {
+    const edges = [
+      edge("a", "b", "contains"),
+      edge("b", "a", "contains"),
+      edge("a", "c", "contains"),
+    ];
+    expect(orderWithParts(["a", "b", "c"], edges, byPath).sort()).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+  });
+
+  it("leaves a part of several hosts after all of them", () => {
+    const edges = [
+      edge("a.php", "header.php", "contains"),
+      edge("b.php", "header.php", "contains"),
+      edge("a.php", "a-only.php", "contains"),
+    ];
+    expect(
+      orderWithParts(
+        ["a.php", "a-only.php", "b.php", "header.php"],
+        edges,
+        byPath,
+      ),
+    ).toEqual(["a.php", "a-only.php", "b.php", "header.php"]);
   });
 });
