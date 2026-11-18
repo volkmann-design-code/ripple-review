@@ -1,5 +1,5 @@
 import { ROLE_RANK } from "./classify.ts";
-import { louvain, type WeightedEdge } from "./community.ts";
+import { louvain, mergeWeak, type WeightedEdge } from "./community.ts";
 import type { Analysis } from "./graph.ts";
 import { findMechanical, type MechanicalGroup } from "./mechanical.ts";
 import type {
@@ -24,6 +24,18 @@ const EDGE_WEIGHT: Record<EdgeKind, number> = {
   "via-generated": 0.75,
   name: 0.5,
 };
+
+/**
+ * Uses of a file shared by many say little about which story a user belongs
+ * to (everything imports the core types): an edge of these kinds out of a
+ * file with more than HUB dependents counts HUB/n. Dependents are counted as
+ * nodes of the graph being clustered: a mechanical group is one node, so its
+ * files' dependents add up, and files of one group count once. Containment and framework
+ * conventions (a migration and the functions it includes) say where a file
+ * belongs, however many there are, and keep their weight.
+ */
+const DAMPED = new Set<EdgeKind>(["import", "name", "via-generated"]);
+const HUB = 3;
 
 interface Story {
   members: string[];
@@ -75,16 +87,31 @@ export function planReview(analysis: Analysis): {
     mechOf.has(p) ? `mech:${mechOf.get(p)}` : p;
   const clusterNodes = [...code, ...mechanical.map((_, i) => `mech:${i}`)];
   const inCluster = new Set(clusterNodes);
+  const fanout = new Map<string, Set<string>>();
+  for (const e of edges) {
+    const a = clusterId(e.from);
+    const b = clusterId(e.to);
+    if (a !== b && inCluster.has(a) && inCluster.has(b) && DAMPED.has(e.kind)) {
+      fanout.set(a, (fanout.get(a) ?? new Set()).add(b));
+    }
+  }
   const weighted: WeightedEdge[] = [];
   for (const e of edges) {
     const a = clusterId(e.from);
     const b = clusterId(e.to);
     if (a !== b && inCluster.has(a) && inCluster.has(b)) {
-      weighted.push({ a, b, w: EDGE_WEIGHT[e.kind] });
+      const w = EDGE_WEIGHT[e.kind];
+      weighted.push({
+        a,
+        b,
+        w: DAMPED.has(e.kind)
+          ? w * Math.min(1, HUB / (fanout.get(a)?.size ?? 1))
+          : w,
+      });
     }
   }
   const community = louvain(clusterNodes, weighted);
-  mergeSingletons(community, weighted);
+  mergeWeak(community, weighted);
 
   const stories = new Map<number, Story>();
   const storyOf = (c: number) => {
@@ -344,38 +371,6 @@ export function planReview(analysis: Analysis): {
 
   annotate(groups, edges);
   return { groups, edges };
-}
-
-/** A community of one file joins the neighbour community it is most strongly tied to. */
-function mergeSingletons(
-  community: Map<string, number>,
-  edges: WeightedEdge[],
-): void {
-  const size = new Map<number, number>();
-  for (const c of community.values()) {
-    size.set(c, (size.get(c) ?? 0) + 1);
-  }
-  for (const [node, c] of [...community].sort((a, b) =>
-    a[0].localeCompare(b[0]),
-  )) {
-    if (size.get(c) !== 1) {
-      continue;
-    }
-    const w = new Map<number, number>();
-    for (const e of edges) {
-      const other = e.a === node ? e.b : e.b === node ? e.a : undefined;
-      if (other !== undefined) {
-        w.set(community.get(other)!, (w.get(community.get(other)!) ?? 0) + e.w);
-      }
-    }
-    const best = [...w].sort((a, b) => b[1] - a[1])[0]?.[0];
-    if (best === undefined || best === c) {
-      continue;
-    }
-    community.set(node, best);
-    size.set(c, 0);
-    size.set(best, size.get(best)! + 1);
-  }
 }
 
 /** Short reasons, from the edges into each item from earlier ones. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { louvain, type WeightedEdge } from "./community.ts";
+import { louvain, mergeWeak, type WeightedEdge } from "./community.ts";
 
 const w = (a: string, b: string, weight = 1): WeightedEdge => ({
   a,
@@ -73,5 +73,52 @@ describe("louvain", () => {
       "b",
       "c",
     ]);
+  });
+});
+
+describe("mergeWeak", () => {
+  // A migration including seven functions, two of which name each other.
+  const leaves = ["l1", "l2", "l3", "l4", "l5", "pair1", "pair2"];
+  const star = [
+    ...leaves.map((l) => w("hub", l)),
+    w("pair1", "pair2", 0.5),
+    w("pair2", "pair1", 0.5),
+  ];
+
+  it("folds a pair tied more to the hub than to itself back into the star", () => {
+    const m = louvain(["hub", ...leaves], star);
+    expect(groups(m)).not.toEqual([["hub", ...leaves].sort()]);
+    mergeWeak(m, star);
+    expect(groups(m)).toEqual([["hub", ...leaves].sort()]);
+  });
+
+  it("keeps communities that are tied more to themselves", () => {
+    const m = louvain(["a", "b", "c", "x", "y", "z"], twoTriangles);
+    mergeWeak(m, twoTriangles);
+    expect(groups(m)).toEqual([
+      ["a", "b", "c"],
+      ["x", "y", "z"],
+    ]);
+  });
+
+  it("merges a single file into its strongest neighbour", () => {
+    const edges = [w("a", "b"), w("c", "a", 0.5), w("c", "b", 2)];
+    const m = new Map([
+      ["a", 0],
+      ["b", 0],
+      ["c", 1],
+    ]);
+    mergeWeak(m, edges);
+    expect(m.get("c")).toBe(0);
+  });
+
+  it("leaves a file without edges alone", () => {
+    const m = new Map([
+      ["a", 0],
+      ["b", 0],
+      ["c", 1],
+    ]);
+    mergeWeak(m, [w("a", "b")]);
+    expect(m.get("c")).toBe(1);
   });
 });
