@@ -5,15 +5,16 @@ import { addedLine, fakeGitHub } from "./fake-github";
 
 /**
  * Screenshots of the real web app into `shots/out/` (gitignored): a review
- * in light and dark, a colleague's thread next to its line, the start page,
- * and a 1280×640 cover (the repository's social preview) made of the light
- * review. The window at 1440×900 and 2×; GitHub answered from a recorded
+ * in light and dark, a colleague's thread next to its line, the start page;
+ * and a 1280×640 cover made of the light review into `.github/cover.png`
+ * (committed: the README's intro and the repository's social preview). The window at 1440×900 and 2×; GitHub answered from a recorded
  * public pull request (fake-github.ts).
  *
  *   bunx nx run @ripple-review/web:shots
  */
 
 const OUT = join(import.meta.dirname, "out");
+const COVER = join(import.meta.dirname, "../../../.github/cover.png");
 const FIXTURE = join(import.meta.dirname, "../../cli/fixtures/spartan-1845");
 const REPO = "spartan-ng/spartan";
 const NUMBER = 1845;
@@ -62,7 +63,7 @@ async function settle(page: Page) {
 
 const shot = (page: Page, name: string, scale: "css" | "device" = "device") =>
   page.screenshot({
-    path: join(OUT, `${name}.png`),
+    path: name.endsWith(".png") ? name : join(OUT, `${name}.png`),
     animations: "disabled",
     caret: "hide",
     scale,
@@ -121,5 +122,5 @@ test("cover", async ({ page }) => {
     .evaluate((img: HTMLImageElement) => img.decode());
   await settle(page);
   // GitHub's social preview: 1280×640, under 1 MB
-  await shot(page, "cover", "css");
+  await shot(page, COVER, "css");
 });

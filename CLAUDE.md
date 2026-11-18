@@ -80,7 +80,8 @@ bun ripple owner/repo#123 --record apps/cli/fixtures/<name>   # add a fixture
 bun ripple owner/repo#123 --ai       # with the AI layer (sends the diff to Anthropic)
 bun corpus [--ai] [<repo>-<n> …]     # evaluation corpus (local/corpus, gitignored)
 bun dev                              # web app on http://localhost:4200 (ng serve; no server)
-bunx nx run @ripple-review/web:shots    # screenshots and the cover into apps/web/shots/out
+bunx nx run @ripple-review/web:shots    # screenshots into apps/web/shots/out, the cover
+                                     # into .github/cover.png (the README's intro; commit it)
                                      # (GitHub faked from a fixture; once: cd apps/web && bunx playwright install chromium)
 ```
 

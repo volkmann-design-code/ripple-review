@@ -5,6 +5,8 @@ schema, domain) out to its consumers, split into stories, with mechanical
 edits and generated files set aside. Alphabetical file lists put consumers
 (`apps/…`) before what they consume (`libs/…`); this fixes that.
 
+![The ripple-review web app showing spartan-ng/spartan#1845: the files grouped into stories, the first group's diff open, two files ticked as viewed](.github/cover.png)
+
 ```sh
 bun install
 bun ripple owner/repo#123                   # GitHub PR (GitHub's API)
