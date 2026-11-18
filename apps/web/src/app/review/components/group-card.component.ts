@@ -35,12 +35,13 @@ import { GroupHeaderComponent } from "./group-header.component";
       @if (group().purpose) {
         <p class="border-b border-stone-100 px-4 py-2 text-sm text-stone-600 dark:border-stone-800 dark:text-stone-400">{{ group().purpose }}</p>
       }
-      <ul>
+      <!-- A tinted gap between files, so one file's diff doesn't run into the next file. -->
+      <ul class="flex flex-col gap-2 rounded-b-lg bg-stone-50 dark:bg-stone-950/60">
         @for (f of group().files; track f.path; let i = $index) {
           @let open = expanded().has(f.path) && withDiff(i);
           <!-- Lands below the group header (2.75rem) when scrolled to. -->
           <li
-            class="scroll-mt-11 border-b border-stone-100 last:border-b-0 dark:border-stone-800"
+            class="scroll-mt-11 border-y border-stone-200 bg-white first:border-t-0 last:rounded-b-lg last:border-b-0 dark:border-stone-800 dark:bg-stone-900"
             [id]="fileId(f.n)"
             [rrSpy]="{ group: group().id, file: f.path }"
           >
