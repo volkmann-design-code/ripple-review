@@ -125,7 +125,12 @@ export function mergeWeak(
     for (const [node, c] of [...community].sort((a, b) =>
       a[0].localeCompare(b[0]),
     )) {
-      members.set(c, [...(members.get(c) ?? []), node]);
+      const ms = members.get(c);
+      if (ms) {
+        ms.push(node);
+      } else {
+        members.set(c, [node]);
+      }
     }
     const inner = new Map<number, number>();
     const ties = new Map<number, Map<number, number>>();

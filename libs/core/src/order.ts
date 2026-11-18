@@ -28,7 +28,9 @@ const EDGE_WEIGHT: Record<EdgeKind, number> = {
 /**
  * Uses of a file shared by many say little about which story a user belongs
  * to (everything imports the core types): an edge of these kinds out of a
- * file with more than HUB dependents counts HUB/n. Containment and framework
+ * file with more than HUB dependents counts HUB/n. Dependents are counted as
+ * nodes of the graph being clustered: a mechanical group is one node, so its
+ * files' dependents add up, and files of one group count once. Containment and framework
  * conventions (a migration and the functions it includes) say where a file
  * belongs, however many there are, and keep their weight.
  */
