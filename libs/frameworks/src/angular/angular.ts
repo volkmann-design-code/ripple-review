@@ -10,14 +10,17 @@ import { packagesUsing } from "../manifests.ts";
 
 /** Component options naming files the component is made of. */
 const FILE_KEYS = new Set(["templateUrl", "styleUrl", "styleUrls"]);
+const DECORATORS = ["Component", "Directive", "Pipe"];
 const SIGNAL_INPUTS = new Set(["input", "output", "model"]);
 
 /**
- * Angular components and directives (`@Component`, `@Directive`):
+ * Angular components, directives and pipes (`@Component`, `@Directive`,
+ * `@Pipe`):
  *  - the template and styles (`templateUrl`, `styleUrl(s)`) are parts of the
  *    component, read right after it, the template first;
  *  - the selector, inputs and outputs are names templates use it by, so a
- *    template that binds `[showButton]` or `(clicked)` links to it.
+ *    template that binds `[showButton]` or `(clicked)` links to it;
+ *  - a pipe's name is how templates use it: `{{ d | shortDate }}`.
  *
  * Detected by `@angular/core` in a `package.json` (the TypeScript adapter
  * reads them all, so recordings keep them).
@@ -36,7 +39,7 @@ export class Angular implements FrameworkRule {
     if (
       !/\.[cm]?tsx?$/.test(f.path) ||
       f.content === undefined ||
-      !(f.content.includes("@Component") || f.content.includes("@Directive"))
+      !DECORATORS.some((d) => f.content?.includes(`@${d}`))
     ) {
       return undefined;
     }
@@ -62,7 +65,7 @@ export class Angular implements FrameworkRule {
   }
 }
 
-/** Each component or directive: the files it is made of, the names templates use. */
+/** Each component, directive or pipe: the files it is made of, the names templates use. */
 function declarations(
   sf: ts.SourceFile,
 ): { files: string[]; names: string[] }[] {
@@ -76,8 +79,7 @@ function declarations(
       if (
         !ts.isCallExpression(call) ||
         !ts.isIdentifier(call.expression) ||
-        (call.expression.text !== "Component" &&
-          call.expression.text !== "Directive")
+        !DECORATORS.includes(call.expression.text)
       ) {
         continue;
       }
@@ -93,6 +95,13 @@ function declarations(
         const key = prop.name.text;
         if (key === "selector" && ts.isStringLiteralLike(prop.initializer)) {
           names.push(...selectorNames(prop.initializer.text));
+        }
+        if (
+          key === "name" &&
+          call.expression.text === "Pipe" &&
+          ts.isStringLiteralLike(prop.initializer)
+        ) {
+          names.push(prop.initializer.text);
         }
         if (!FILE_KEYS.has(key)) {
           continue;

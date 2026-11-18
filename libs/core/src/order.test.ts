@@ -6,22 +6,38 @@ import { orderWithParts, planReview } from "./order.ts";
 function analysis(
   files: [string, Role][],
   edges: [string, string, EdgeKind][],
+  /** Diff lines per file ("+…", "-…"), for the same-edit detection. */
+  diffs: Record<string, string[]> = {},
 ): Analysis {
   const nodes = new Map<string, FileNode>(
-    files.map(([path, role]) => [
-      path,
-      {
-        file: {
-          path,
-          status: "modified",
-          additions: 1,
-          deletions: 0,
-          binary: false,
-          hunks: [],
+    files.map(([path, role]) => {
+      const lines = diffs[path] ?? [];
+      const count = (c: string) => lines.filter((l) => l[0] === c).length;
+      return [
+        path,
+        {
+          file: {
+            path,
+            status: "modified",
+            additions: lines.length ? count("+") : 1,
+            deletions: count("-"),
+            binary: false,
+            hunks: lines.length
+              ? [
+                  {
+                    oldStart: 1,
+                    oldLines: count("-"),
+                    newStart: 1,
+                    newLines: count("+"),
+                    lines,
+                  },
+                ]
+              : [],
+          },
+          role,
         },
-        role,
-      },
-    ]),
+      ];
+    }),
   );
   return {
     nodes,
@@ -85,6 +101,72 @@ describe("planReview", () => {
       ),
     );
     expect(result).toEqual([["migration", ...fns].sort()]);
+  });
+});
+
+describe("planReview with a shared helper used by many components", () => {
+  const names = ["a", "b", "c", "d"];
+  const ts = (n: string) => `app/${n}/${n}.component.ts`;
+  const html = (n: string) => `app/${n}/${n}.component.html`;
+  const pipe = "app/shared/short-date.pipe.ts";
+  const plan = (htmlDiff: (n: string, i: number) => string[]) =>
+    planReview(
+      analysis(
+        [
+          [pipe, "source"],
+          ...names.flatMap((n): [string, Role][] => [
+            [ts(n), "source"],
+            [html(n), "source"],
+          ]),
+        ],
+        names.flatMap((n): [string, string, EdgeKind][] => [
+          [ts(n), html(n), "contains"],
+          [pipe, ts(n), "import"],
+          [pipe, html(n), "name"],
+        ]),
+        Object.fromEntries(
+          names.flatMap((n, i) => [
+            [
+              ts(n),
+              [
+                '-import { DatePipe } from "@angular/common";',
+                '+import { ShortDatePipe } from "../shared/short-date.pipe";',
+              ],
+            ],
+            [html(n), htmlDiff(n, i)],
+          ]),
+        ),
+      ),
+    ).groups.map((g) => [g.kind, ...g.items.map((i) => i.path)]);
+
+  it("reads the components' same edit before their templates' same edit", () => {
+    expect(
+      plan(() => [
+        '-<td>{{ row.at | date: "short" }}</td>',
+        "+<td>{{ row.at | shortDate }}</td>",
+      ]),
+    ).toEqual([
+      ["story", pipe],
+      ["mechanical", ...names.map(ts)],
+      ["mechanical", ...names.map(html)],
+    ]);
+  });
+
+  it("reads templates with edits of their own after their components' same edit", () => {
+    expect(
+      plan((n, i) => [
+        '-<td>{{ row.at | date: "short" }}</td>',
+        "+<td>{{ row.at | shortDate }}</td>",
+        ...Array.from(
+          { length: 3 * (i + 1) },
+          (_, k) => `+<p>{{ "${n} note ${k}" }}</p>`,
+        ),
+      ]),
+    ).toEqual([
+      ["story", pipe],
+      ["mechanical", ...names.map(ts)],
+      ["story", ...names.map(html)],
+    ]);
   });
 });
 

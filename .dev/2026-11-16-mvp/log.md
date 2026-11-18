@@ -20,6 +20,15 @@ Newest first. One entry per session: machine, what happened, what's next.
   migration's include order instead of the path order. Two private
   goldens were stale before this (failing on `main`), not updated here.
   `SAVED_REVIEWS.version` 9.
+- Asked how a new shared helper used by many components comes out
+  (tried on a scratch repo: a new pipe, five components): the
+  components' same edit went into a same-edit group, their templates
+  before it (or the templates' own same-edit group before the
+  components'), and the pipe unlinked from the templates. Now the
+  Angular rule defines a pipe's `name`; a story's same-edit groups go
+  hosts first; a template whose component is in a same-edit group is
+  read after that group, in a story group "…, continued". No fixture
+  changes.
 
 ## 2026-11-17: mac, static layer: weak communities merge back
 

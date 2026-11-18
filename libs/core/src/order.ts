@@ -287,6 +287,10 @@ export function planReview(analysis: Analysis): {
     });
   }
 
+  // A part whose host went into a same-edit group (a template whose
+  // component got the same new import as twenty others) is read after
+  // that group, not before its component.
+  const hostOf = soleHosts(edges);
   const standalone: string[] = [];
   for (const key of storyOrder) {
     const s = storyKey.get(key)!;
@@ -294,39 +298,58 @@ export function planReview(analysis: Analysis): {
       standalone.push(s.members[0]!);
       continue;
     }
-    if (s.members.length > 0) {
-      const byRole = (pred: (r: Role) => boolean) =>
-        s.members.filter((m) => pred(role(m)));
-      const ordered = [
-        ...orderWithParts(
-          byRole((r) => !isTest(r)),
-          edges,
-          fileCompare,
-        ),
-        ...orderWithParts(
-          byRole((r) => r === "test-support"),
-          edges,
-          fileCompare,
-        ),
-        ...orderWithParts(
-          byRole((r) => r === "test"),
-          edges,
-          fileCompare,
-        ),
-      ];
+    const byRole = (pred: (r: Role) => boolean, from = s.members) =>
+      from.filter((m) => pred(role(m)));
+    const deferred = s.members.filter((m) => {
+      const h = hostOf.get(m);
+      return h !== undefined && mechOf.has(h) && !isTest(role(m));
+    });
+    const before = s.members.filter((m) => !deferred.includes(m));
+    const code = orderWithParts(
+      byRole((r) => !isTest(r), before),
+      edges,
+      fileCompare,
+    );
+    const tests = [
+      ...orderWithParts(
+        byRole((r) => r === "test-support"),
+        edges,
+        fileCompare,
+      ),
+      ...orderWithParts(
+        byRole((r) => r === "test"),
+        edges,
+        fileCompare,
+      ),
+    ];
+    const first = deferred.length ? code : [...code, ...tests];
+    const firstTitle = first.length
+      ? storyTitle(first, edges, nodes)
+      : undefined;
+    if (first.length > 0) {
       groups.push({
         kind: "story",
-        title: storyTitle(ordered, edges, nodes),
-        items: ordered.map(item),
+        title: firstTitle!,
+        items: first.map(item),
       });
     }
-    for (const g of s.mechanical) {
+    for (const g of mechanicalInOrder(s.mechanical, edges)) {
       groups.push({
         kind: "mechanical",
         title: g.newFiles
           ? `Same new file in ${g.files.length} places, starting \`${g.lines[0] ?? ""}\``
           : `Same edit in ${g.files.length} files: ${g.lines.map((l) => `\`${l}\``).join(" ")}`,
         items: g.files.map(item),
+      });
+    }
+    if (deferred.length > 0) {
+      const rest = [...orderWithParts(deferred, edges, fileCompare), ...tests];
+      groups.push({
+        kind: "story",
+        title: firstTitle
+          ? `${firstTitle}, continued`
+          : storyTitle(rest, edges, nodes),
+        items: rest.map(item),
       });
     }
   }
@@ -449,6 +472,50 @@ export function orderWithParts(
       ),
     ];
   });
+}
+
+/** Each file contained by exactly one other, with that host. */
+function soleHosts(edges: Edge[]): Map<string, string> {
+  const hosts = new Map<string, Set<string>>();
+  for (const e of edges) {
+    if (e.kind === "contains" && e.from !== e.to) {
+      hosts.set(e.to, (hosts.get(e.to) ?? new Set()).add(e.from));
+    }
+  }
+  return new Map(
+    [...hosts].flatMap(([p, hs]) => (hs.size === 1 ? [[p, [...hs][0]!]] : [])),
+  );
+}
+
+/**
+ * A story's same-edit groups, the one with the hosts before the one with
+ * their parts: the components' new import, then the templates' new pipe.
+ */
+function mechanicalInOrder(
+  groups: MechanicalGroup[],
+  edges: Edge[],
+): MechanicalGroup[] {
+  if (groups.length < 2) {
+    return groups;
+  }
+  const groupOf = new Map<string, string>();
+  groups.forEach((g, i) => {
+    for (const f of g.files) {
+      groupOf.set(f, String(i));
+    }
+  });
+  const between = edges.flatMap((e) => {
+    const a = groupOf.get(e.from);
+    const b = groupOf.get(e.to);
+    return e.kind === "contains" && a && b && a !== b
+      ? [{ from: a, to: b }]
+      : [];
+  });
+  return topoOrder(
+    groups.map((_, i) => String(i)),
+    between,
+    (a, b) => Number(a) - Number(b),
+  ).map((i) => groups[Number(i)]!);
 }
 
 /** Short reasons, from the edges into each item from earlier ones. */

@@ -91,6 +91,21 @@ describe("Angular", () => {
     ]);
   });
 
+  it("defines a pipe's name, which templates use it by", async () => {
+    const { r } = await rule();
+    const pipe = [
+      'import { Pipe, type PipeTransform } from "@angular/core";',
+      '@Pipe({ name: "shortDate" })',
+      "export class ShortDatePipe implements PipeTransform {",
+      "  transform(v: string) { return v; }",
+      "}",
+    ].join("\n");
+    expect(
+      r.file({ path: "apps/web/src/app/short-date.pipe.ts", content: pipe })
+        ?.definitions,
+    ).toEqual(["shortDate"]);
+  });
+
   it("leaves files without a component or directive alone", async () => {
     const { r } = await rule();
     expect(
