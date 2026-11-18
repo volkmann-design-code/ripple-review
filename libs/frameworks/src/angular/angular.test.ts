@@ -61,6 +61,21 @@ describe("Angular", () => {
     ]);
   });
 
+  it("lists the template before the styles, in whatever order they're written", async () => {
+    const { r } = await rule();
+    const stylesFirst = [
+      "@Component({",
+      "  styleUrl: './list.component.scss',",
+      "  templateUrl: 'list.component.html',",
+      "})",
+      "export class ListComponent {}",
+    ].join("\n");
+    expect(r.file({ path, content: stylesFirst })?.parts).toEqual([
+      "apps/web/src/app/list.component.html",
+      "apps/web/src/app/list.component.scss",
+    ]);
+  });
+
   it("defines the selectors, inputs and outputs templates bind to", async () => {
     const { r } = await rule();
     expect(r.file({ path, content: component })?.definitions).toEqual([
@@ -74,6 +89,21 @@ describe("Angular", () => {
       "appTooltip",
       "app-tip",
     ]);
+  });
+
+  it("defines a pipe's name, which templates use it by", async () => {
+    const { r } = await rule();
+    const pipe = [
+      'import { Pipe, type PipeTransform } from "@angular/core";',
+      '@Pipe({ name: "shortDate" })',
+      "export class ShortDatePipe implements PipeTransform {",
+      "  transform(v: string) { return v; }",
+      "}",
+    ].join("\n");
+    expect(
+      r.file({ path: "apps/web/src/app/short-date.pipe.ts", content: pipe })
+        ?.definitions,
+    ).toEqual(["shortDate"]);
   });
 
   it("leaves files without a component or directive alone", async () => {

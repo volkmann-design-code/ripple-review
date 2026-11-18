@@ -92,15 +92,28 @@ export function applyAnswer(
     }
   }
 
+  // A component's template and styles move with it, never on their own.
+  const hosts = new Map<string, Set<string>>();
+  for (const e of edges) {
+    if (e.kind === "contains" && e.from !== e.to) {
+      hosts.set(e.to, (hosts.get(e.to) ?? new Set()).add(e.from));
+    }
+  }
+  const hostOf = (p: string) => {
+    const hs = hosts.get(p);
+    return hs?.size === 1 ? [...hs][0] : undefined;
+  };
   const moved = new Set<string>();
   for (const m of answer.moves) {
     const from = out.find((g) => g.items.some((i) => i.path === m.path));
     const to = valid(m.to) ? out[m.to] : undefined;
+    const host = hostOf(m.path);
     if (
       !from ||
       !to ||
       from === to ||
       moved.has(m.path) ||
+      (host !== undefined && from.items.some((i) => i.path === host)) ||
       !MOVE_FROM.includes(from.kind) ||
       !MOVE_TO.includes(to.kind)
     ) {
@@ -113,6 +126,12 @@ export function applyAnswer(
       it.notes.push(m.reason ? `placed here: ${m.reason}` : "placed here");
       insert(to.items, it);
       moved.add(m.path);
+      const parts = from.items.filter((i) => hostOf(i.path) === m.path);
+      from.items = from.items.filter((i) => !parts.includes(i));
+      to.items.splice(to.items.indexOf(it) + 1, 0, ...parts);
+      for (const p of parts) {
+        moved.add(p.path);
+      }
     }
   }
 

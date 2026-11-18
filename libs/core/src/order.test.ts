@@ -1,27 +1,43 @@
 import { describe, expect, it } from "vitest";
 import type { Analysis } from "./graph.ts";
 import type { Edge, EdgeKind, FileNode, Role } from "./model.ts";
-import { planReview } from "./order.ts";
+import { orderWithParts, planReview } from "./order.ts";
 
 function analysis(
   files: [string, Role][],
   edges: [string, string, EdgeKind][],
+  /** Diff lines per file ("+…", "-…"), for the same-edit detection. */
+  diffs: Record<string, string[]> = {},
 ): Analysis {
   const nodes = new Map<string, FileNode>(
-    files.map(([path, role]) => [
-      path,
-      {
-        file: {
-          path,
-          status: "modified",
-          additions: 1,
-          deletions: 0,
-          binary: false,
-          hunks: [],
+    files.map(([path, role]) => {
+      const lines = diffs[path] ?? [];
+      const count = (c: string) => lines.filter((l) => l[0] === c).length;
+      return [
+        path,
+        {
+          file: {
+            path,
+            status: "modified",
+            additions: lines.length ? count("+") : 1,
+            deletions: count("-"),
+            binary: false,
+            hunks: lines.length
+              ? [
+                  {
+                    oldStart: 1,
+                    oldLines: count("-"),
+                    newStart: 1,
+                    newLines: count("+"),
+                    lines,
+                  },
+                ]
+              : [],
+          },
+          role,
         },
-        role,
-      },
-    ]),
+      ];
+    }),
   );
   return {
     nodes,
@@ -85,5 +101,146 @@ describe("planReview", () => {
       ),
     );
     expect(result).toEqual([["migration", ...fns].sort()]);
+  });
+});
+
+describe("planReview with a shared helper used by many components", () => {
+  const names = ["a", "b", "c", "d"];
+  const ts = (n: string) => `app/${n}/${n}.component.ts`;
+  const html = (n: string) => `app/${n}/${n}.component.html`;
+  const pipe = "app/shared/short-date.pipe.ts";
+  const plan = (htmlDiff: (n: string, i: number) => string[]) =>
+    planReview(
+      analysis(
+        [
+          [pipe, "source"],
+          ...names.flatMap((n): [string, Role][] => [
+            [ts(n), "source"],
+            [html(n), "source"],
+          ]),
+        ],
+        names.flatMap((n): [string, string, EdgeKind][] => [
+          [ts(n), html(n), "contains"],
+          [pipe, ts(n), "import"],
+          [pipe, html(n), "name"],
+        ]),
+        Object.fromEntries(
+          names.flatMap((n, i) => [
+            [
+              ts(n),
+              [
+                '-import { DatePipe } from "@angular/common";',
+                '+import { ShortDatePipe } from "../shared/short-date.pipe";',
+              ],
+            ],
+            [html(n), htmlDiff(n, i)],
+          ]),
+        ),
+      ),
+    ).groups.map((g) => [g.kind, ...g.items.map((i) => i.path)]);
+
+  it("reads the components' same edit before their templates' same edit", () => {
+    expect(
+      plan(() => [
+        '-<td>{{ row.at | date: "short" }}</td>',
+        "+<td>{{ row.at | shortDate }}</td>",
+      ]),
+    ).toEqual([
+      ["story", pipe],
+      ["mechanical", ...names.map(ts)],
+      ["mechanical", ...names.map(html)],
+    ]);
+  });
+
+  it("reads templates with edits of their own after their components' same edit", () => {
+    expect(
+      plan((n, i) => [
+        '-<td>{{ row.at | date: "short" }}</td>',
+        "+<td>{{ row.at | shortDate }}</td>",
+        ...Array.from(
+          { length: 3 * (i + 1) },
+          (_, k) => `+<p>{{ "${n} note ${k}" }}</p>`,
+        ),
+      ]),
+    ).toEqual([
+      ["story", pipe],
+      ["mechanical", ...names.map(ts)],
+      ["story", ...names.map(html)],
+    ]);
+  });
+});
+
+describe("orderWithParts", () => {
+  const edge = (from: string, to: string, kind: EdgeKind): Edge => ({
+    from,
+    to,
+    kind,
+    via: [],
+  });
+  const byPath = (a: string, b: string) => a.localeCompare(b);
+
+  it("reads a component's template and styles right after it", () => {
+    // detail.html binds the tracking component: tracking first, whole.
+    // Sorted by path alone, detail.ts would come between tracking.ts and its
+    // template.
+    const ts = "detail/tracking/tracking.component.ts";
+    const html = "detail/tracking/tracking.component.html";
+    const css = "detail/tracking/tracking.component.css";
+    const files = [
+      "detail/detail.component.html",
+      "detail/detail.component.ts",
+      "detail/tracking.query.ts",
+      css,
+      html,
+      ts,
+    ];
+    const edges = [
+      edge(
+        "detail/detail.component.ts",
+        "detail/detail.component.html",
+        "contains",
+      ),
+      edge(ts, html, "contains"),
+      edge(ts, css, "contains"),
+      edge(ts, "detail/detail.component.html", "framework"),
+      edge("detail/tracking.query.ts", ts, "import"),
+      edge("detail/tracking.query.ts", "detail/detail.component.ts", "import"),
+    ];
+    expect(orderWithParts(files, edges, byPath)).toEqual([
+      "detail/tracking.query.ts",
+      ts,
+      html,
+      css,
+      "detail/detail.component.ts",
+      "detail/detail.component.html",
+    ]);
+  });
+
+  it("places every file once when hosts contain each other", () => {
+    const edges = [
+      edge("a", "b", "contains"),
+      edge("b", "a", "contains"),
+      edge("a", "c", "contains"),
+    ];
+    expect(orderWithParts(["a", "b", "c"], edges, byPath).sort()).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+  });
+
+  it("leaves a part of several hosts after all of them", () => {
+    const edges = [
+      edge("a.php", "header.php", "contains"),
+      edge("b.php", "header.php", "contains"),
+      edge("a.php", "a-only.php", "contains"),
+    ];
+    expect(
+      orderWithParts(
+        ["a.php", "a-only.php", "b.php", "header.php"],
+        edges,
+        byPath,
+      ),
+    ).toEqual(["a.php", "a-only.php", "b.php", "header.php"]);
   });
 });
