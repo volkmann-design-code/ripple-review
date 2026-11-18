@@ -15,25 +15,25 @@ import { addedLine, fakeGitHub } from "./fake-github";
 
 const OUT = join(import.meta.dirname, "out");
 const COVER = join(import.meta.dirname, "../../../.github/cover.png");
-const FIXTURE = join(import.meta.dirname, "../../cli/fixtures/spartan-1845");
+const FIXTURE = join(import.meta.dirname, "../../cli/fixtures/spartan-1741");
 const REPO = "spartan-ng/spartan";
-const NUMBER = 1845;
-const THREAD_FILE = "libs/brain/tooltip/src/lib/brn-tooltip.ts";
+const NUMBER = 1741;
+const THREAD_FILE = "libs/helm/switch/src/lib/hlm-switch.ts";
 
 const pull = {
   dir: FIXTURE,
   repo: REPO,
   number: NUMBER,
   viewed: [
-    "libs/brain/tooltip/src/lib/brn-tooltip-position.ts",
-    "libs/brain/tooltip/src/lib/brn-tooltip.token.ts",
+    "libs/brain/switch/src/lib/brn-switch.ts",
+    "libs/brain/switch/src/lib/brn-switch-thumb.ts",
   ],
   threads: [
     {
       path: THREAD_FILE,
-      line: addedLine(FIXTURE, THREAD_FILE, "public readonly sideOffset"),
+      line: addedLine(FIXTURE, THREAD_FILE, "[forceInvalid]"),
       author: "lena-k",
-      body: "Does `sideOffset` also apply to the fallback positions? A test for the flipped case would help.",
+      body: "Should `forceInvalid` also set `aria-invalid` on the button? A screen reader wouldn't announce it otherwise.",
     },
   ],
 };
@@ -48,7 +48,7 @@ async function openReview(page: Page) {
   await page.locator("#github-token").fill("demo");
   await page.getByRole("button", { name: "Save" }).click();
   await page.goto(`/${REPO}/pull/${NUMBER}`);
-  await expect(page.getByText("brn-tooltip-position.ts").first()).toBeVisible();
+  await expect(page.getByText("brn-switch.ts").first()).toBeVisible();
   await settle(page);
 }
 
@@ -86,7 +86,7 @@ test("thread", async ({ page }) => {
   await openReview(page);
   // the thread in the middle, its line and the code around it in view
   await page
-    .getByText("A test for the flipped case")
+    .getByText("A screen reader wouldn")
     .first()
     // instant: the page scrolls smoothly, a screenshot would catch it halfway
     .evaluate((el) =>
