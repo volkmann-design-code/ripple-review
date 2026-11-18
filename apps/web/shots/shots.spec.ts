@@ -15,25 +15,43 @@ import { addedLine, fakeGitHub } from "./fake-github";
 
 const OUT = join(import.meta.dirname, "out");
 const COVER = join(import.meta.dirname, "../../../.github/cover.png");
-const FIXTURE = join(import.meta.dirname, "../../cli/fixtures/spartan-1741");
-const REPO = "spartan-ng/spartan";
-const NUMBER = 1741;
-const THREAD_FILE = "libs/helm/switch/src/lib/hlm-switch.ts";
+const FIXTURE = join(
+  import.meta.dirname,
+  "../../cli/fixtures/graphile-starter-341",
+);
+const REPO = "graphile/starter";
+const NUMBER = 341;
+const THREAD_FILE = "@app/components/src/SharedLayout.tsx";
+/** The group on screen: a story from a shared component out to its pages. */
+const STORY = "SharedLayout.tsx";
 
 const pull = {
   dir: FIXTURE,
   repo: REPO,
   number: NUMBER,
+  // groups 1–4 reviewed, the story on screen begun
   viewed: [
-    "libs/brain/switch/src/lib/brn-switch.ts",
-    "libs/brain/switch/src/lib/brn-switch-thumb.ts",
+    "README.md",
+    ".editorconfig",
+    ".eslintrc.js",
+    "package.json",
+    "tsconfig.json",
+    "@app/client/src/styles.css",
+    "@app/client/src/pages/_app.tsx",
+    "@app/server/src/utils/handleErrors.ts",
+    "@app/server/src/plugins/PassportLoginPlugin.ts",
+    "@app/components/src/Redirect.tsx",
   ],
   threads: [
     {
       path: THREAD_FILE,
-      line: addedLine(FIXTURE, THREAD_FILE, "[forceInvalid]"),
+      line: addedLine(
+        FIXTURE,
+        THREAD_FILE,
+        'data-cy="layout-header-titlelink"',
+      ),
       author: "lena-k",
-      body: "Should `forceInvalid` also set `aria-invalid` on the button? A screen reader wouldn't announce it otherwise.",
+      body: "With Next 13 the `Link` renders the `<a>` itself: does the `data-cy` still reach it, or do the Cypress tests lose the title link?",
     },
   ],
 };
@@ -48,12 +66,30 @@ async function openReview(page: Page) {
   await page.locator("#github-token").fill("demo");
   await page.getByRole("button", { name: "Save" }).click();
   await page.goto(`/${REPO}/pull/${NUMBER}`);
-  await expect(page.getByText("brn-switch.ts").first()).toBeVisible();
+  const outline = page.getByRole("navigation", { name: "Groups and files" });
+  await expect(outline.getByText("Repository config")).toBeVisible();
+  await outline.getByRole("button", { name: new RegExp(STORY) }).click();
+  await stopped(page);
   await settle(page);
+}
+
+/** Until the page stops scrolling (a jump scrolls smoothly). */
+async function stopped(page: Page) {
+  let last = -1;
+  await expect
+    .poll(async () => {
+      const y = await page.evaluate(() => window.scrollY);
+      const still = y === last && y > 0;
+      last = y;
+      return still;
+    })
+    .toBe(true);
 }
 
 async function settle(page: Page) {
   await page.waitForLoadState("networkidle");
+  // no hover left on what was clicked
+  await page.mouse.move(0, 0);
   await page.evaluate(async () => {
     await document.fonts.ready;
     (document.activeElement as HTMLElement | null)?.blur();
@@ -86,7 +122,7 @@ test("thread", async ({ page }) => {
   await openReview(page);
   // the thread in the middle, its line and the code around it in view
   await page
-    .getByText("A screen reader wouldn")
+    .getByText("do the Cypress tests lose")
     .first()
     // instant: the page scrolls smoothly, a screenshot would catch it halfway
     .evaluate((el) =>

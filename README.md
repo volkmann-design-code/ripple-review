@@ -5,14 +5,14 @@ schema, domain) out to its consumers, split into stories, with mechanical
 edits and generated files set aside. Alphabetical file lists put consumers
 (`apps/…`) before what they consume (`libs/…`); this fixes that.
 
-![The ripple-review web app showing spartan-ng/spartan#1741: the files grouped into stories, from brn-switch.ts out to the helm wrappers, CLI templates and docs examples that use it; the first group's diff open, two files ticked as viewed](.github/cover.png)
+![The ripple-review web app showing graphile/starter#341: thirteen groups, from context and config through stories to the same edit in several files, tests and the lockfile set aside; the story around SharedLayout.tsx open, the groups before it reviewed](.github/cover.png)
 
 ```sh
 bun install
 bun ripple owner/repo#123                   # GitHub PR (GitHub's API)
 bun ripple https://github.com/o/r/pull/123
 bun ripple --repo ../app --base main        # local branch vs. main
-bun ripple --fixture apps/cli/fixtures/spartan-1741   # a recorded change
+bun ripple --fixture apps/cli/fixtures/graphile-starter-341   # a recorded change
   --format json   # machine-readable
   --debug         # dump edges and roles to stderr
   --record <dir>  # save the change (diff + files read) as a fixture
@@ -144,7 +144,7 @@ every time. Playwright needs its browser once:
 
 Tests run offline: recorded PRs in `apps/cli/fixtures/` (`--record`) replay
 against a golden `expected.md` of their review order. An example of the
-output: [`examples/spartan-1741.md`](examples/spartan-1741.md).
+output: [`examples/graphile-starter-341.md`](examples/graphile-starter-341.md).
 
 Recordings of private repositories go to `local/fixtures/` instead
 (gitignored); the tests run them too when they are there. The same goes for

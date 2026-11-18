@@ -10,6 +10,6 @@
  * applied (`refine` in core) need a bump too; no golden covers them.
  */
 export const SAVED_REVIEWS = {
-  version: 7,
-  goldens: "4b5819d52c9f8016",
+  version: 8,
+  goldens: "121d0100b56a37c4",
 } as const;
