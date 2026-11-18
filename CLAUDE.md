@@ -81,6 +81,7 @@ bun ripple owner/repo#123 --ai       # with the AI layer (sends the diff to Anth
 bun corpus [--ai] [<repo>-<n> …]     # evaluation corpus (local/corpus, gitignored)
 bun dev                              # web app on http://localhost:4200 (ng serve; no server)
 bunx nx run @ripple-review/web:shots    # screenshots and the cover into apps/web/shots/out
+                                     # (copy cover.png to .github/ for the README)
                                      # (GitHub faked from a fixture; once: cd apps/web && bunx playwright install chromium)
 ```
 
