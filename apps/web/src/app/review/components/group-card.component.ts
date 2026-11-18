@@ -24,7 +24,11 @@ import { GroupHeaderComponent } from "./group-header.component";
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <!-- The header and each file are boxes of their own, so the page shows
+         between the files and one file's diff doesn't run into the next. -->
     <rr-group-header
+      class="border-x border-t"
+      [class.rounded-b-lg]="collapsed() || !group().purpose"
       [group]="group()"
       [collapsed]="collapsed()"
       [done]="done()"
@@ -33,15 +37,15 @@ import { GroupHeaderComponent } from "./group-header.component";
     />
     @if (!collapsed()) {
       @if (group().purpose) {
-        <p class="border-b border-stone-100 px-4 py-2 text-sm text-stone-600 dark:border-stone-800 dark:text-stone-400">{{ group().purpose }}</p>
+        <p class="rounded-b-lg border-x border-b border-stone-200 bg-white px-4 py-2 text-sm text-stone-600 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-400">{{ group().purpose }}</p>
       }
-      <!-- A tinted gap between files, so one file's diff doesn't run into the next file. -->
-      <ul class="flex flex-col gap-2 rounded-b-lg bg-stone-50 dark:bg-stone-950/60">
+      <ul class="mt-2 flex flex-col gap-2">
         @for (f of group().files; track f.path; let i = $index) {
           @let open = expanded().has(f.path) && withDiff(i);
-          <!-- Lands below the group header (2.75rem) when scrolled to. -->
+          <!-- Lands below the group header (2.75rem) when scrolled to; clip, not
+               hidden, rounds the corners and keeps the file row sticky. -->
           <li
-            class="scroll-mt-11 border-y border-stone-200 bg-white first:border-t-0 last:rounded-b-lg last:border-b-0 dark:border-stone-800 dark:bg-stone-900"
+            class="scroll-mt-11 overflow-clip rounded-lg border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900"
             [id]="fileId(f.n)"
             [rrSpy]="{ group: group().id, file: f.path }"
           >
@@ -65,8 +69,7 @@ import { GroupHeaderComponent } from "./group-header.component";
     }
   `,
   host: {
-    class:
-      "block rounded-lg border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900",
+    class: "block",
     "[id]": "group().id",
   },
 })
