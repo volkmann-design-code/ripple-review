@@ -116,6 +116,45 @@ describe("findMechanical", () => {
     expect(groups.map((g) => g.files)).toEqual([["a.ts", "b.ts", "c.ts"]]);
   });
 
+  it("does not chain two edits into one group through a file left out", () => {
+    // Shares both edits' lines, but its edit is mostly something else.
+    const bridge = node(
+      "bridge.ts",
+      ['import { WithSession } from "./s";', 'import { Pool } from "./p";'],
+      [
+        'import { WithSession } from "./t";',
+        'import { Pool } from "./q";',
+        "const one = 1;",
+        "const two = 2;",
+        "const three = 3;",
+        "const four = 4;",
+        "const five = 5;",
+        "const six = 6;",
+        "const seven = 7;",
+      ],
+    );
+    const movePool = (path: string) =>
+      node(
+        path,
+        ['import { Pool } from "./p";'],
+        ['import { Pool } from "./q";'],
+      );
+    const groups = findMechanical([
+      bridge,
+      moveImport("a.ts", "./s", "./t"),
+      moveImport("b.ts", "./s", "./t"),
+      moveImport("c.ts", "./s", "./t"),
+      movePool("d.ts"),
+      movePool("e.ts"),
+      movePool("f.ts"),
+    ]);
+    expect(groups.map((g) => g.files)).toEqual([
+      ["a.ts", "b.ts", "c.ts"],
+      ["d.ts", "e.ts", "f.ts"],
+    ]);
+    expect(groups.every((g) => g.lines.length > 0)).toBe(true);
+  });
+
   it("does not count trivial lines as shared", () => {
     expect(
       findMechanical([

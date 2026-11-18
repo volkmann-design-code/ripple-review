@@ -173,26 +173,8 @@ export function findMechanical(nodes: FileNode[]): MechanicalGroup[] {
     [...filesByLine].filter(([, fs]) => fs.length >= MIN_FILES).map(([l]) => l),
   );
 
-  // Union files that share a common line.
-  const parent = new Map<string, string>();
-  const find = (x: string): string => {
-    while (parent.get(x) !== x) {
-      x = parent.get(x)!;
-    }
-    return x;
-  };
-  for (const p of sigs.keys()) {
-    parent.set(p, p);
-  }
-  for (const l of shared) {
-    const [first, ...rest] = filesByLine.get(l)!;
-    for (const r of rest) {
-      parent.set(find(r), find(first!));
-    }
-  }
-
-  const comps = new Map<string, string[]>();
-  for (const p of sigs.keys()) {
+  // Files whose edit is mostly shared lines.
+  const qualified = [...sigs.keys()].filter((p) => {
     const sig = sigs.get(p)!;
     // Lines that mention a constant of a same-value edit are part of that edit.
     const mentions = [...sig]
@@ -201,9 +183,30 @@ export function findMechanical(nodes: FileNode[]): MechanicalGroup[] {
     const sharedCount = [...sig].filter(
       (l) => shared.has(l) || (l[0] !== "=" && mentions.some((m) => m.test(l))),
     ).length;
-    if (sharedCount === 0 || sharedCount / sig.size < MIN_SHARED_FRACTION) {
-      continue;
+    return sharedCount > 0 && sharedCount / sig.size >= MIN_SHARED_FRACTION;
+  });
+
+  // Union those files over the lines they share. Only among themselves: a
+  // file left out must not chain two unrelated edits into one group.
+  const parent = new Map<string, string>();
+  const find = (x: string): string => {
+    while (parent.get(x) !== x) {
+      x = parent.get(x)!;
     }
+    return x;
+  };
+  for (const p of qualified) {
+    parent.set(p, p);
+  }
+  for (const l of shared) {
+    const [first, ...rest] = filesByLine.get(l)!.filter((p) => parent.has(p));
+    for (const r of rest) {
+      parent.set(find(r), find(first!));
+    }
+  }
+
+  const comps = new Map<string, string[]>();
+  for (const p of qualified) {
     const root = find(p);
     comps.set(root, [...(comps.get(root) ?? []), p]);
   }
@@ -221,9 +224,13 @@ export function findMechanical(nodes: FileNode[]): MechanicalGroup[] {
         }
       }
     }
-    const lines = [...counts]
-      .filter(([, c]) => c * 2 >= files.length)
-      .sort((a, b) => b[1] - a[1] || (a[0][0] === "-" ? -1 : 1))
+    const byCount = [...counts].sort(
+      (a, b) => b[1] - a[1] || (a[0][0] === "-" ? -1 : 1),
+    );
+    // The lines most of the files share; in a chain of edits, where none
+    // reaches half, the most shared ones, so the group is never unnamed.
+    const common = byCount.filter(([, c]) => c * 2 >= files.length);
+    const lines = (common.length > 0 ? common : byCount)
       .slice(0, 3)
       .map(([l]) => example.get(l) ?? l);
     groups.push({ lines, files: files.sort() });
